@@ -1,7 +1,9 @@
 'use strict';
 // All sound is synthesized with WebAudio — no assets.
 const SFX = (function () {
-  let ac = null, muted = false;
+  let ac = null;
+  let muted = false;
+  try { muted = localStorage.getItem('reelTrouble.mute') === '1'; } catch (e) { /* private mode */ }
   function ctx() {
     if (!ac) {
       try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { ac = null; }
@@ -37,7 +39,11 @@ const SFX = (function () {
   }
   return {
     unlock() { ctx(); },
-    toggleMute() { muted = !muted; return muted; },
+    toggleMute() {
+      muted = !muted;
+      try { localStorage.setItem('reelTrouble.mute', muted ? '1' : '0'); } catch (e) { /* private mode */ }
+      return muted;
+    },
     sel() { tone(660, 880, 0.06, 'square', 0.07); },
     deny() { tone(220, 110, 0.15, 'square', 0.09); },
     cast() { hiss(0.22, 0.1); tone(500, 950, 0.2, 'sine', 0.05); },

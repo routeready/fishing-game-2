@@ -5,6 +5,7 @@
   const coarse = (window.matchMedia && matchMedia('(pointer: coarse)').matches) ||
     'ontouchstart' in window || (navigator.maxTouchPoints || 0) > 0;
   if (!coarse) return;
+  RT.touch = true; // scenes swap key hints for button names
   document.body.classList.add('touch');
 
   function press(k) { const K = RT.Keys; if (!K.held[k]) K.pressed[k] = true; K.held[k] = true; }

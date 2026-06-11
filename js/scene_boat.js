@@ -338,8 +338,8 @@ RT.scenes.boat = {
       ctx.fillRect(mx + Math.round(B.x * k) - 1, my + Math.round(B.y * k) - 1, 2, 2);
     }
     // hints
-    if (this.nearSpot && this.pull <= 0) textCS(ctx, 'SPACE: DROP ANCHOR & FISH', W / 2, H - 34, '#ffd040');
-    else if (this.nearDock && this.pull <= 0) textCS(ctx, 'ENTER: CALL IT A DAY (CASH IN)', W / 2, H - 34, '#8f8');
+    if (this.nearSpot && this.pull <= 0) textCS(ctx, kt('SPACE: DROP ANCHOR & FISH', 'CAST: DROP ANCHOR & FISH'), W / 2, H - 34, '#ffd040');
+    else if (this.nearDock && this.pull <= 0) textCS(ctx, kt('ENTER: CALL IT A DAY (CASH IN)', 'OK: CALL IT A DAY (CASH IN)'), W / 2, H - 34, '#8f8');
     earlDraw();
   },
 };
