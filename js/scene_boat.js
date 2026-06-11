@@ -109,11 +109,14 @@ RT.scenes.boat = {
     // rocks
     for (const rk of Wd.rocks) {
       const d = dist(B.x, B.y, rk.x, rk.y);
-      if (d < rk.r + 7) {
+      const rr = rk.r + 7;
+      if (d < rr) {
         const px = (B.x - rk.x) / (d || 1), py = (B.y - rk.y) / (d || 1);
-        B.x = rk.x + px * (rk.r + 7); B.y = rk.y + py * (rk.r + 7);
-        if (B.v > 25) { SFX.bonk(); toast('HULL SCRAPE!', '#f88'); }
-        B.v *= 0.25; B.stun = 0.4;
+        // push out past the rim — landing exactly on it re-collides on float
+        // fuzz every frame, refreshing the stun forever and locking the boat
+        B.x = rk.x + px * (rr + 1); B.y = rk.y + py * (rr + 1);
+        if (B.v > 25) { SFX.bonk(); toast('HULL SCRAPE!', '#f88'); B.stun = 0.4; }
+        B.v *= 0.25;
       }
     }
 
