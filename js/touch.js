@@ -10,10 +10,16 @@
   function press(k) { const K = RT.Keys; if (!K.held[k]) K.pressed[k] = true; K.held[k] = true; }
   function release(k) { RT.Keys.held[k] = false; }
 
-  function btn(label, keys, cls) {
+  function btn(label, keys, cls, hint) {
     const b = document.createElement('div');
     b.className = 'tbtn' + (cls ? ' ' + cls : '');
     b.textContent = label;
+    if (hint) {
+      const h = document.createElement('span');
+      h.className = 'thint';
+      h.textContent = hint;
+      b.appendChild(h);
+    }
     b.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       SFX.unlock();
@@ -40,9 +46,9 @@
   const acts = document.createElement('div');
   acts.id = 'acts';
   acts.append(
-    btn('ESC', ['back'], 'sm'), btn('OK', ['ok'], 'sm'), btn('HMB!', ['hold'], 'sm'),
-    btn('BEER', ['beer'], 'md'), btn('LAY LOW', ['lay'], 'md'),
-    btn('CAST', ['act'], 'big'),
+    btn('BACK', ['back'], 'sm', 'menu/leave'), btn('OK', ['ok'], 'sm', 'confirm'), btn('HMB!', ['hold'], 'sm', 'super cast'),
+    btn('BEER', ['beer'], 'md', 'drink one'), btn('LAY LOW', ['lay'], 'md w2', 'hold to hide'),
+    btn('CAST', ['act'], 'big', 'strike / hold to reel'),
   );
 
   bar.append(dpad, acts);
@@ -55,12 +61,17 @@
   // Earl's free-beer offer wants Y/N — pop them up only while he's asking.
   const yn = document.createElement('div');
   yn.id = 'tyn';
-  yn.append(btn('Y', ['yes'], 'sm'), btn('N', ['no'], 'sm'));
+  yn.append(btn('Y', ['yes'], 'sm', 'yes!'), btn('N', ['no'], 'sm', 'no thanks'));
   document.body.appendChild(yn);
   (function watch() {
     yn.style.display = (RT.G && RT.G.earl.offer) ? 'flex' : 'none';
     requestAnimationFrame(watch);
   })();
+
+  // iOS Safari can still pinch/double-tap zoom despite the viewport meta and
+  // touch-action — kill both gestures outright; this is a fixed-canvas game.
+  document.addEventListener('gesturestart', (e) => e.preventDefault());
+  document.addEventListener('dblclick', (e) => e.preventDefault());
 
   // main.js already ran its initial fit() without the 'touch' class — redo it.
   window.dispatchEvent(new Event('resize'));
