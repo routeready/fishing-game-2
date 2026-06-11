@@ -254,7 +254,8 @@ RT.scenes.boat = {
       const phase = Math.floor(G.t * 6) % 2;
       ctx.fillStyle = phase ? '#f03030' : '#3060f0';
       ctx.fillRect(sx - 2, sy - 7, 4, 3);
-      if (P.seen && Math.floor(G.t * 4) % 2 === 0) textCS(ctx, '!', sx, sy - 18, '#f44', 2);
+      textCS(ctx, 'COPS', sx, sy - 14, '#f88');
+      if (P.seen && Math.floor(G.t * 4) % 2 === 0) textCS(ctx, '!', sx, sy - 22, '#f44', 2);
     }
     // player boat
     {
@@ -326,9 +327,11 @@ RT.scenes.boat = {
       ctx.fillStyle = '#caa86a';
       ctx.fillRect(mx + Math.round(Wd.dock.x * k) - 1, my + Math.round(Wd.dock.y * k) - 1, 3, 2);
       for (const P of Wd.patrols) {
+        const px = mx + Math.round(P.x * k), py = my + Math.round(P.y * k);
+        ctx.fillStyle = '#f03030'; ctx.fillRect(px - 2, py - 1, 2, 2);
+        ctx.fillStyle = '#3060f0'; ctx.fillRect(px, py - 1, 2, 2);
         if (Math.floor(G.t * 4) % 2 === 0) {
-          ctx.fillStyle = '#f03030';
-          ctx.fillRect(mx + Math.round(P.x * k) - 1, my + Math.round(P.y * k) - 1, 2, 2);
+          textS(ctx, 'COPS', clamp(px - 7, mx + 1, mx + mw - 16), clamp(py - 8, my + 1, my + mh - 6), '#f66');
         }
       }
       ctx.fillStyle = '#fff';

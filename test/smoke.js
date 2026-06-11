@@ -158,6 +158,9 @@ press('Enter');
 assert.strictEqual(G.sceneName, 'dock', 'summary -> dock');
 assert.ok(G.save.cash > cashBefore, 'haul cashed in');
 assert.strictEqual(G.save.records.streak, 1, 'streak counted');
+assert.strictEqual(G.save.board.length, 1, 'haul chalked on leaderboard');
+assert.strictEqual(G.save.board[0].name, 'ANON', 'no name entered -> ANON');
+assert.strictEqual(G.save.board[0].score, G.save.records.haul, 'board keeps best haul');
 assert.ok(store['reelTrouble.v1'], 'save persisted');
 
 // breathalyzer: sober pass and hammered fail
@@ -188,7 +191,7 @@ assert.strictEqual(G.save.records.streak, 0, 'bust resets streak');
 assert.strictEqual(G.save.records.busts, 1, 'bust recorded');
 
 // menus render without crashing
-for (const s of ['shop', 'trophy', 'board', 'report', 'lakes', 'title']) {
+for (const s of ['shop', 'trophy', 'board', 'ranks', 'report', 'lakes', 'title']) {
   RT.setScene(s);
   step(3);
   press('Escape');

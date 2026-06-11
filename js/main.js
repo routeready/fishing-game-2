@@ -142,6 +142,16 @@ function endTrip(busted) {
     R.buzz = Math.max(R.buzz, T.maxBuzz);
     R.streak++;
     R.bestStreak = Math.max(R.bestStreak, R.streak);
+    if (total > 0) {
+      // leaderboard: best single-trip haul, one slot per name
+      const name = G.save.name || 'ANON';
+      const b = G.save.board;
+      const e = b.find(x => x.name === name);
+      if (e) e.score = Math.max(e.score, total);
+      else b.push({ name, score: total });
+      b.sort((a, z) => z.score - a.score);
+      G.save.board = b.slice(0, 8);
+    }
   }
   persist();
 }

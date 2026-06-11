@@ -43,7 +43,7 @@ RT.scenes.title = {
 RT.scenes.dock = {
   enter() {
     this.cur = 0;
-    this.items = ['SET OUT', 'LAKE', 'SHOP', 'TROPHY WALL', 'THE BAR WALL', 'DAILY LAKE REPORT'];
+    this.items = ['SET OUT', 'LAKE', 'SHOP', 'TROPHY WALL', 'THE BAR WALL', 'LEADERBOARD', 'DAILY LAKE REPORT'];
     G.trip = null;
   },
   update(dt) {
@@ -64,6 +64,7 @@ RT.scenes.dock = {
       else if (it === 'SHOP') { SFX.sel(); setScene('shop'); }
       else if (it === 'TROPHY WALL') { SFX.sel(); setScene('trophy'); }
       else if (it === 'THE BAR WALL') { SFX.sel(); setScene('board'); }
+      else if (it === 'LEADERBOARD') { SFX.sel(); setScene('ranks'); }
       else { SFX.sel(); setScene('report'); }
     }
   },
@@ -80,6 +81,7 @@ RT.scenes.dock = {
     text(ctx, BOATS[G.save.boat].name, 12, 56, '#9fd');
     text(ctx, BEERS[G.save.beer].name, 12, 64, '#9fd');
     const R = G.save.records;
+    text(ctx, G.save.name || 'ANON', 240, 38, '#ffd040');
     text(ctx, 'STREAK ' + R.streak, 240, 48, '#fc8');
     text(ctx, 'TRIPS ' + R.trips, 240, 56, '#9fd');
 
@@ -91,8 +93,8 @@ RT.scenes.dock = {
         label = '< ' + LAKES[G.lake].name + (locked ? ' *LOCKED*' : '') + ' >';
       }
       const sel = i === this.cur;
-      if (sel) { ctx.fillStyle = '#24424a'; ctx.fillRect(74, 102 + i * 16 - 3, 172, 12); }
-      textC(ctx, label, W / 2, 102 + i * 16, sel ? '#ffd040' : '#cfe8e8');
+      if (sel) { ctx.fillStyle = '#24424a'; ctx.fillRect(74, 101 + i * 14 - 3, 172, 12); }
+      textC(ctx, label, W / 2, 101 + i * 14, sel ? '#ffd040' : '#cfe8e8');
     }
     textC(ctx, G.daily.tip, W / 2, 210, '#48818b');
   },
@@ -238,6 +240,35 @@ RT.scenes.board = {
       panel(ctx, 30, y, 260, 16);
       text(ctx, rows[i][0], 38, y + 5, '#cfe8e8');
       text(ctx, rows[i][1], 38 + 160, y + 5, '#ffd040');
+    }
+    textC(ctx, 'ESC: BACK', W / 2, 208, '#48818b');
+  },
+};
+
+// ---------------- HIGH SCORES ----------------
+RT.scenes.ranks = {
+  enter() {},
+  update(dt) { if (pressed('back') || pressed('ok')) setScene('dock'); },
+  draw() {
+    ctx.fillStyle = '#101a14'; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#16241c';
+    for (let y = 0; y < H; y += 14) ctx.fillRect(0, y, W, 2);
+    textCS(ctx, 'LEADERBOARD', W / 2, 10, '#ffd040', 2);
+    textC(ctx, 'BIGGEST HAUL CASHED IN ONE TRIP', W / 2, 26, '#48818b');
+    const b = G.save.board;
+    if (!b.length) {
+      textC(ctx, 'NOBODY ON THE BOARD YET.', W / 2, 96, '#9fd');
+      textC(ctx, 'CATCH SOMETHING AND CASH IN AT THE DOCK.', W / 2, 110, '#48818b');
+    } else {
+      for (let i = 0; i < b.length; i++) {
+        const y = 42 + i * 19;
+        const me = b[i].name === (G.save.name || 'ANON');
+        panel(ctx, 40, y, 240, 15);
+        text(ctx, (i + 1) + '.', 48, y + 5, i === 0 ? '#ffd040' : '#48818b');
+        text(ctx, b[i].name, 66, y + 5, me ? '#ffd040' : '#cfe8e8');
+        if (me) text(ctx, '<YOU', 130, y + 5, '#7fa0a6');
+        text(ctx, money(b[i].score), 226, y + 5, '#8f8');
+      }
     }
     textC(ctx, 'ESC: BACK', W / 2, 208, '#48818b');
   },

@@ -4,6 +4,8 @@ const SAVE_KEY = 'reelTrouble.v1';
 function defaultSave() {
   return {
     cash: 0, rod: 0, boat: 0, beer: 0, lakes: 1,
+    name: '',       // who's fishing — asked at boot
+    board: [],      // leaderboard: [{ name, score }] best single-trip haul per name
     trophies: {},   // speciesId -> { w: bestWeight, n: count }
     records: { bigW: 0, bigName: '', haul: 0, buzz: 0, streak: 0, bestStreak: 0, nearMisses: 0, trips: 0, busts: 0 },
   };
@@ -17,6 +19,7 @@ function loadSave() {
     const s = JSON.parse(raw);
     return {
       ...d, ...s,
+      board: (s.board || []).filter(e => e && e.name),
       trophies: { ...(s.trophies || {}) },
       records: { ...d.records, ...(s.records || {}) },
     };
