@@ -51,7 +51,10 @@
     btn('CAST', ['act'], 'big', 'strike / hold to reel'),
   );
 
-  bar.append(dpad, acts);
+  // thumbs layout: steer left, actions center, throttle right
+  const gas = btn('GAS', ['up'], '', 'hold to drive');
+  gas.id = 'tgas';
+  bar.append(dpad, acts, gas);
   document.body.appendChild(bar);
 
   const mute = btn('♪', ['mute'], '');
