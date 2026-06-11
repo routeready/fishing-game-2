@@ -1,0 +1,10 @@
+{
+  "name": "reel-trouble",
+  "version": "1.0.0",
+  "description": "Push-your-luck 16-bit fishing game: drink to catch more, dodge the lake patrol.",
+  "private": true,
+  "scripts": {
+    "test": "node test/smoke.js",
+    "shots": "node test/shots.js"
+  }
+}
