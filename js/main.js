@@ -66,6 +66,7 @@ function held(k) { return !!Keys.held[k]; }
 function setScene(name, args) {
   G.sceneName = name;
   G.scene = RT.scenes[name];
+  G.earl.txt = null; G.earl.ttl = 0; G.earl.offer = false;
   if (G.scene.enter) G.scene.enter(args || {});
 }
 RT.setScene = setScene;
@@ -124,6 +125,7 @@ function tripTick(dt) {
     toast('LAST CALL! SUN IS GOING DOWN', '#ffd040');
     SFX.horn();
   }
+  if (duskK() > 0.3 && Math.random() < dt / 7) SFX.cricket();
   if (T.timeMin >= TRIP_END) { T.over = true; return true; }
   return false;
 }
@@ -132,11 +134,13 @@ RT.tripTick = tripTick;
 function endTrip(busted) {
   const T = G.trip, R = G.save.records;
   R.trips++;
+  let total = 0, mult = 1;
   if (busted) {
     R.busts++;
     R.streak = 0;
   } else {
-    const total = Math.round(coolerVal());
+    mult = 1 + Math.min(R.streak, 6) * 0.05; // no-arrest streak pays
+    total = Math.round(coolerVal() * mult);
     G.save.cash += total;
     R.haul = Math.max(R.haul, total);
     R.buzz = Math.max(R.buzz, T.maxBuzz);
@@ -154,8 +158,27 @@ function endTrip(busted) {
     }
   }
   persist();
+  return { total, mult };
 }
 RT.endTrip = endTrip;
+
+// Cheapest thing you can't yet afford — the "one more trip" carrot.
+function nextGoal() {
+  const S = G.save;
+  const opts = [];
+  if (S.rod + 1 < RODS.length) opts.push({ name: RODS[S.rod + 1].name, cost: RODS[S.rod + 1].cost });
+  if (S.boat + 1 < BOATS.length) opts.push({ name: BOATS[S.boat + 1].name, cost: BOATS[S.boat + 1].cost });
+  if (S.beer + 1 < BEERS.length) opts.push({ name: BEERS[S.beer + 1].name, cost: BEERS[S.beer + 1].cost });
+  if (S.lakes < LAKES.length) opts.push({ name: LAKES[S.lakes].name, cost: LAKES[S.lakes].unlock });
+  return opts.filter(o => o.cost > S.cash).sort((a, b) => a.cost - b.cost)[0] || null;
+}
+RT.nextGoal = nextGoal;
+
+// Haptic tap on phones that support it; harmless no-op elsewhere.
+function vibrate(ms) {
+  try { if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(ms); } catch (e) { /* no-op */ }
+}
+RT.vibrate = vibrate;
 
 // ---------- toasts ----------
 function toast(txt, col) { G.toast = { txt, t: 2.6, col: col || '#fff' }; }
@@ -189,7 +212,8 @@ function earlUpdate(dt) {
   E.t -= dt;
   if (E.t <= 0) {
     E.t = rnd(16, 32);
-    if (G.trip && Math.random() < 0.3 && G.trip.drinking <= 0) {
+    if (G.trip && Math.random() < 0.3 && G.trip.drinking <= 0 &&
+        !(G.sceneName === 'fish' && RT.scenes.fish.mode === 'fight')) {
       E.txt = EARL_OFFER; E.ttl = 8; E.offer = true; E.offerT = 8;
     } else {
       earlSay(pick(EARL_LINES), 4.5);
@@ -293,8 +317,6 @@ RT.drawCooler = drawCooler;
 
 function toastDraw() {
   if (!G.toast) return;
-  G.toast.t -= 1 / 60;
-  if (G.toast.t <= 0) { G.toast = null; return; }
   if (G.toast.t > 2.2 && Math.floor(G.t * 8) % 2 === 0) return; // flash in
   textCS(ctx, G.toast.txt, W / 2, 30, G.toast.col, 1);
 }
@@ -343,6 +365,8 @@ function frame(ts) {
     G.t += STEP;
     G.scene.update(STEP);
     Keys.pressed = {};
+    RT.tap = null;
+    if (G.toast) { G.toast.t -= STEP; if (G.toast.t <= 0) G.toast = null; }
     if (FX.shT > 0) FX.shT -= STEP;
     if (FX.flT > 0) FX.flT -= STEP;
     acc -= STEP;

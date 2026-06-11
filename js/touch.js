@@ -8,8 +8,18 @@
   RT.touch = true; // scenes swap key hints for button names
   document.body.classList.add('touch');
 
-  function press(k) { const K = RT.Keys; if (!K.held[k]) K.pressed[k] = true; K.held[k] = true; }
-  function release(k) { RT.Keys.held[k] = false; }
+  // Refcounted so GAS and d-pad UP (both 'up') don't cancel each other.
+  const cnt = {};
+  function press(k) {
+    cnt[k] = (cnt[k] || 0) + 1;
+    const K = RT.Keys;
+    if (!K.held[k]) K.pressed[k] = true;
+    K.held[k] = true;
+  }
+  function release(k) {
+    cnt[k] = Math.max(0, (cnt[k] || 0) - 1);
+    if (cnt[k] === 0) RT.Keys.held[k] = false;
+  }
 
   function btn(label, keys, cls, hint) {
     const b = document.createElement('div');
@@ -71,6 +81,15 @@
     yn.style.display = (RT.G && RT.G.earl.offer) ? 'flex' : 'none';
     requestAnimationFrame(watch);
   })();
+
+  // Tapping the game screen itself drives menus (scenes read RT.tap).
+  const cvsEl = document.getElementById('game');
+  cvsEl.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    SFX.unlock();
+    const r = cvsEl.getBoundingClientRect();
+    if (r.width > 0) RT.tap = { x: (e.clientX - r.left) * 320 / r.width, y: (e.clientY - r.top) * 224 / r.height };
+  });
 
   // iOS Safari can still pinch/double-tap zoom despite the viewport meta and
   // touch-action — kill both gestures outright; this is a fixed-canvas game.

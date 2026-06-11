@@ -42,7 +42,9 @@ function dailyReport() {
   const windSpd = Math.floor(r() * (weather.windMax + 1));
   const commons = Object.keys(FISH).filter(k => !FISH[k].legend);
   const fod = commons[Math.floor(r() * commons.length)];
+  // fish of the day per lake, so the 2x bonus always points at catchable water
+  const fodL = LAKES.map(L => L.fish[Math.floor(r() * L.fish.length)][0]);
   const hot = Math.floor(r() * 100); // taken modulo spot count per lake
   const tip = TIPS[Math.floor(r() * TIPS.length)];
-  return { seed, dateStr, weather, windDir, windSpd, fod, hot, tip };
+  return { seed, dateStr, weather, windDir, windSpd, fod, fodL, hot, tip };
 }

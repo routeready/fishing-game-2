@@ -65,6 +65,7 @@ RT.scenes.boat = {
     this.pull = 0;   // 'PULL OVER' cutscene timer
     this.hintT = 0;
     this.foam = []; // wake particles
+    this.motorT = 0; this.dockArm = 0;
   },
   update(dt) {
     const T = G.trip, Wd = T.world, B = Wd.boat, L = LAKES[T.lake];
@@ -98,7 +99,10 @@ RT.scenes.boat = {
     B.ang += Math.sin(G.t * 2.3) * 2.0 * weave * dt;
     B.x += Math.cos(B.ang) * B.v * dt;
     B.y += Math.sin(B.ang) * B.v * dt;
-    if (B.v > 30 && Math.floor(G.t * 9) % 3 === 0) SFX.motor();
+    if (B.v > 30) {
+      this.motorT -= dt;
+      if (this.motorT <= 0) { this.motorT = 0.34; SFX.motor(); }
+    }
     // wake foam
     if (B.v > 25 && Math.random() < B.v / 90) {
       this.foam.push({
@@ -188,9 +192,14 @@ RT.scenes.boat = {
       setScene('fish', { spot: this.nearSpot });
       return;
     }
-    // --- dock: cash in early ---
+    // --- dock: cash in early (double-press so one stray OK can't end the trip) ---
     this.nearDock = dist(B.x, B.y, Wd.dock.x, Wd.dock.y) < 46;
-    if (this.nearDock && pressed('ok')) { setScene('summary'); return; }
+    if (this.dockArm > 0) this.dockArm -= dt;
+    if (this.nearDock && pressed('ok')) {
+      if (this.dockArm > 0) { setScene('summary'); return; }
+      this.dockArm = 1.5;
+      toast(kt('ENTER AGAIN TO CASH IN', 'OK AGAIN TO CASH IN'), '#8f8');
+    }
   },
   draw() {
     const T = G.trip, Wd = T.world, B = Wd.boat, L = LAKES[T.lake];
