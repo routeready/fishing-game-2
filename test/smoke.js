@@ -40,12 +40,14 @@ global.AudioContext = function () {
   this.destination = {};
   this.resume = noop;
   const node = () => ({
-    connect: noop, start: noop, stop: noop, type: '',
-    frequency: { setValueAtTime: noop, exponentialRampToValueAtTime: noop },
-    gain: { setValueAtTime: noop, exponentialRampToValueAtTime: noop },
+    connect: noop, start: noop, stop: noop, type: '', loop: false,
+    frequency: { value: 0, setValueAtTime: noop, exponentialRampToValueAtTime: noop },
+    Q: { value: 0 },
+    gain: { value: 0, setValueAtTime: noop, exponentialRampToValueAtTime: noop },
     buffer: null,
   });
   this.createOscillator = node;
+  this.createBiquadFilter = node;
   this.createGain = node;
   this.createBufferSource = node;
   this.createBuffer = () => ({ getChannelData: () => new Float32Array(8) });

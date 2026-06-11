@@ -35,10 +35,19 @@
   #tgas{width:62px;height:96px;font-size:15px;background:#16262c;border-color:#5a8a90;color:#8f8}
   #tgas .thint{font-size:7px}
   #tgas.on{background:#5a8a90;color:#fff}
-  /* landscape: controls overlay the canvas, so let the game show through */
-  @media (orientation:landscape){.tbtn{opacity:.5}.tbtn.on{opacity:.95}}
+  /* landscape: keep the action cluster off the play area, beside GAS */
+  @media (orientation:landscape){
+    .tbtn{opacity:.5}.tbtn.on{opacity:.95}
+    #acts{position:fixed;right:84px;bottom:calc(8px + env(safe-area-inset-bottom))}
+  }
+  /* tiny phones (iPhone SE, fold covers): shrink so nothing clips */
+  @media (max-width:350px){
+    #dpad{grid-auto-columns:38px;grid-auto-rows:38px}
+    #acts{grid-template-columns:repeat(3,42px);grid-template-rows:34px 34px 46px}
+    #tgas{width:54px;height:88px}
+  }
   #tmute{position:fixed;top:8px;right:8px;width:36px;height:36px;z-index:10}
-  #tyn{position:fixed;left:50%;transform:translateX(-50%);bottom:160px;display:none;gap:10px;z-index:11}
+  #tyn{position:fixed;left:50%;transform:translateX(-50%);bottom:170px;display:none;gap:10px;z-index:11}
   #tyn .tbtn{width:54px;height:44px;font-size:16px;background:#2a2410;border-color:#ffd040;color:#ffe080}
   /* name gate (js/name.js) */
   #namegate{position:fixed;inset:0;background:rgba(6,12,14,.93);display:flex;align-items:center;justify-content:center;z-index:30}

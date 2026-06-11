@@ -37,10 +37,31 @@ const SFX = (function () {
     n.connect(g); g.connect(a.destination);
     n.start(t);
   }
+  // Looping low-pass water bed so the lake never goes dead silent.
+  let amb = null;
+  function startAmb() {
+    const a = ctx(); if (!a || amb) return;
+    try {
+      const len = Math.max(1, Math.floor(a.sampleRate * 2));
+      const buf = a.createBuffer(1, len, a.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+      const src = a.createBufferSource(); src.buffer = buf; src.loop = true;
+      const f = a.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 380; f.Q.value = 0.7;
+      const g = a.createGain(); g.gain.value = muted ? 0 : 0.022;
+      const lfo = a.createOscillator(); lfo.frequency.value = 0.13;
+      const lg = a.createGain(); lg.gain.value = 140;
+      lfo.connect(lg); lg.connect(f.frequency);
+      src.connect(f); f.connect(g); g.connect(a.destination);
+      src.start(); lfo.start();
+      amb = g;
+    } catch (e) { amb = null; }
+  }
   return {
-    unlock() { ctx(); },
+    unlock() { ctx(); startAmb(); },
     toggleMute() {
       muted = !muted;
+      if (amb) amb.gain.value = muted ? 0 : 0.022;
       try { localStorage.setItem('reelTrouble.mute', muted ? '1' : '0'); } catch (e) { /* private mode */ }
       return muted;
     },
@@ -65,5 +86,8 @@ const SFX = (function () {
     bonk() { tone(150, 55, 0.12, 'square', 0.14); hiss(0.1, 0.09); },
     fanfare() { [523, 659, 784, 1046, 784, 1046].forEach((f, i) => tone(f, f, 0.13, 'square', 0.11, i * 0.11)); },
     motor() { tone(90, 70, 0.08, 'sawtooth', 0.03); },
+    tick(k) { tone(420 + k * 600, 420 + k * 600, 0.03, 'square', 0.045); },
+    creak() { tone(150, 95, 0.12, 'sawtooth', 0.07); },
+    cricket() { tone(4300, 4100, 0.04, 'square', 0.035); tone(4300, 4100, 0.04, 'square', 0.03, 0.08); },
   };
 })();

@@ -17,19 +17,51 @@ function waterStripes(y0, y1, base, stripe, speed) {
 RT.scenes.title = {
   enter() {},
   update(dt) {
-    if (pressed('ok') || pressed('act')) { SFX.fanfare(); setScene('dock'); }
+    if (pressed('ok') || pressed('act') || RT.tap) { SFX.fanfare(); setScene('dock'); }
   },
   draw() {
-    ctx.fillStyle = '#10303a'; ctx.fillRect(0, 0, W, 70);
-    // sunset sun
+    // sunset gradient sky
+    const sky = ['#0c2230', '#173648', '#34465a', '#6a4438'];
+    const skyH = [20, 18, 16, 16];
+    let sy0 = 0;
+    for (let i = 0; i < 4; i++) { ctx.fillStyle = sky[i]; ctx.fillRect(0, sy0, W, skyH[i]); sy0 += skyH[i]; }
+    // sun with glow
+    ctx.fillStyle = 'rgba(240,160,48,0.3)'; ctx.fillRect(246, 34, 30, 30);
     ctx.fillStyle = '#f0a030'; ctx.fillRect(250, 38, 22, 22);
     ctx.fillStyle = '#ffd040'; ctx.fillRect(254, 42, 14, 14);
     waterStripes(70, H, '#1a5a66', '#2e8a96', 1.2);
-    // boat silhouette
+    // sun reflection shimmer
+    for (let y = 74; y < 150; y += 6) {
+      const a = 0.4 * (1 - (y - 74) / 80);
+      ctx.fillStyle = 'rgba(240,170,60,' + a.toFixed(2) + ')';
+      const off = Math.sin(G.t * 1.6 + y * 0.4) * 5;
+      ctx.fillRect(Math.round(252 + off), y, 16 - Math.round((y - 74) / 8), 1);
+    }
+    // birds drifting home
+    ctx.fillStyle = '#0a1a20';
+    for (let i = 0; i < 3; i++) {
+      const bx2 = ((G.t * 13 + i * 130) % (W + 60)) - 30;
+      const by2 = 16 + i * 9 + Math.sin(G.t * 2 + i * 2) * 2;
+      const fl = Math.floor(G.t * 5 + i) % 2;
+      ctx.fillRect(Math.round(bx2 - 3), Math.round(by2 + (fl ? 0 : -1)), 3, 1);
+      ctx.fillRect(Math.round(bx2 + 1), Math.round(by2 + (fl ? 0 : -1)), 3, 1);
+      ctx.fillRect(Math.round(bx2), Math.round(by2), 1, 1);
+    }
+    // boat silhouette with you and Earl aboard
     const bx = 60 + Math.sin(G.t * 0.6) * 4, by = 96 + Math.sin(G.t * 1.4) * 1.5;
     ctx.fillStyle = '#0a1a20';
-    ctx.fillRect(bx, by, 34, 6); ctx.fillRect(bx + 4, by - 8, 4, 8);
-    ctx.fillRect(bx + 14, by - 6, 3, 6); ctx.fillRect(bx + 8, by - 10, 14, 1); // rod
+    ctx.fillRect(bx, by, 34, 6);
+    ctx.fillRect(bx + 4, by - 8, 4, 8);   // you
+    ctx.fillRect(bx + 14, by - 6, 3, 6);  // earl
+    // your rod sweeps as you cast off the bow
+    const ra = Math.sin(G.t * 0.9) * 0.5;
+    ctx.strokeStyle = '#0a1a20'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(bx + 7, by - 7);
+    ctx.lineTo(bx + 7 + Math.cos(-0.9 + ra) * 15, by - 7 + Math.sin(-0.9 + ra) * 15);
+    ctx.stroke();
+    // earl's can glints
+    if (Math.floor(G.t * 2.5) % 3 === 0) { ctx.fillStyle = '#ffd040'; ctx.fillRect(bx + 18, by - 7, 2, 2); }
     // logo
     textCS(ctx, 'REEL', W / 2, 112, '#ffd040', 5, '#402000');
     textCS(ctx, 'TROUBLE', W / 2, 142, '#f06040', 5, '#401010');
@@ -37,7 +69,7 @@ RT.scenes.title = {
     if (Math.floor(G.t * 2) % 2 === 0) textC(ctx, kt('PRESS ENTER', 'TAP CAST'), W / 2, 188, '#fff', 2);
     const champ = G.save.board[0];
     if (champ) textC(ctx, 'CHAMP: ' + champ.name + ' ' + money(champ.score), W / 2, 200, '#9fd');
-    textC(ctx, 'DRINK RESPONSIBLY. IN-GAME, GO NUTS.', W / 2, 208, '#48666b');
+    textC(ctx, 'DRINK RESPONSIBLY. IN-GAME, GO NUTS.', W / 2, 208, '#6a8a90');
   },
 };
 
@@ -57,7 +89,12 @@ RT.scenes.dock = {
       G.lake = (G.lake + d + n) % n;
       SFX.sel();
     }
-    if (pressed('ok') || pressed('act')) {
+    let go = pressed('ok') || pressed('act');
+    if (RT.tap && RT.tap.x > 70 && RT.tap.x < 250 && RT.tap.y > 95 && RT.tap.y < 200) {
+      this.cur = clamp(Math.floor((RT.tap.y - 98) / 14), 0, this.items.length - 1);
+      go = true;
+    }
+    if (go) {
       const it = this.items[this.cur];
       if (it === 'SET OUT') {
         if (G.lake >= G.save.lakes) { SFX.deny(); toast('LAKE LOCKED - UNLOCK IT FIRST', '#f88'); return; }
@@ -98,7 +135,7 @@ RT.scenes.dock = {
       if (sel) { ctx.fillStyle = '#24424a'; ctx.fillRect(74, 101 + i * 14 - 3, 172, 12); }
       textC(ctx, label, W / 2, 101 + i * 14, sel ? '#ffd040' : '#cfe8e8');
     }
-    textC(ctx, G.daily.tip, W / 2, 210, '#48818b');
+    textC(ctx, G.daily.tip, W / 2, 210, '#6fa6b2');
   },
 };
 
@@ -109,7 +146,15 @@ RT.scenes.lakes = {
     if (pressed('up')) { this.cur = (this.cur + LAKES.length - 1) % LAKES.length; SFX.sel(); }
     if (pressed('down')) { this.cur = (this.cur + 1) % LAKES.length; SFX.sel(); }
     if (pressed('back')) setScene('dock');
-    if (pressed('ok') || pressed('act')) {
+    let go = pressed('ok') || pressed('act');
+    if (RT.tap) {
+      const idx = Math.floor((RT.tap.y - 40) / 52);
+      if (idx >= 0 && idx < LAKES.length) {
+        if (idx === this.cur) go = true;
+        else { this.cur = idx; SFX.sel(); }
+      }
+    }
+    if (go) {
       if (this.cur < G.save.lakes) { G.lake = this.cur; SFX.sel(); setScene('dock'); }
       else {
         const cost = LAKES[this.cur].unlock;
@@ -138,7 +183,7 @@ RT.scenes.lakes = {
         text(ctx, next ? 'UNLOCK ' + money(L.unlock) : 'LOCKED', 220, y + 6, next && G.save.cash >= L.unlock ? '#8f8' : '#f88');
       }
     }
-    textC(ctx, kt('ENTER: CHOOSE/UNLOCK   ESC: BACK', 'OK: CHOOSE/UNLOCK   BACK: RETURN'), W / 2, 204, '#48818b');
+    textC(ctx, kt('ENTER: CHOOSE/UNLOCK   ESC: BACK', 'OK: CHOOSE/UNLOCK   BACK: RETURN'), W / 2, 204, '#6fa6b2');
   },
 };
 
@@ -149,7 +194,15 @@ RT.scenes.shop = {
     if (pressed('up')) { this.cur = (this.cur + 2) % 3; SFX.sel(); }
     if (pressed('down')) { this.cur = (this.cur + 1) % 3; SFX.sel(); }
     if (pressed('back')) setScene('dock');
-    if (pressed('ok') || pressed('act')) {
+    let go = pressed('ok') || pressed('act');
+    if (RT.tap) {
+      const idx = Math.floor((RT.tap.y - 36) / 52);
+      if (idx >= 0 && idx < 3) {
+        if (idx === this.cur) go = true;
+        else { this.cur = idx; SFX.sel(); }
+      }
+    }
+    if (go) {
       const cats = [
         { list: RODS, key: 'rod' },
         { list: BOATS, key: 'boat' },
@@ -183,17 +236,17 @@ RT.scenes.shop = {
       if (next) {
         text(ctx, 'NEXT: ' + next.name, 22, y + 32, '#cfe8e8');
         text(ctx, money(next.cost), 252, y + 32, G.save.cash >= next.cost ? '#8f8' : '#f88');
-      } else text(ctx, 'NEXT: NOTHING BEATS IT', 22, y + 32, '#48818b');
-      text(ctx, r.desc, 152, y + 5, '#48818b');
+      } else text(ctx, 'NEXT: NOTHING BEATS IT', 22, y + 32, '#6fa6b2');
+      text(ctx, r.desc, 152, y + 5, '#6fa6b2');
     }
-    textC(ctx, kt('ENTER: BUY NEXT TIER   ESC: BACK', 'OK: BUY NEXT TIER   BACK: RETURN'), W / 2, 204, '#48818b');
+    textC(ctx, kt('ENTER: BUY NEXT TIER   ESC: BACK', 'OK: BUY NEXT TIER   BACK: RETURN'), W / 2, 204, '#6fa6b2');
   },
 };
 
 // ---------------- TROPHY WALL ----------------
 RT.scenes.trophy = {
   enter() {},
-  update(dt) { if (pressed('back') || pressed('ok')) setScene('dock'); },
+  update(dt) { if (pressed('back') || pressed('ok') || RT.tap) setScene('dock'); },
   draw() {
     ctx.fillStyle = '#241810'; ctx.fillRect(0, 0, W, H);
     ctx.fillStyle = '#34241a';
@@ -216,18 +269,18 @@ RT.scenes.trophy = {
       }
       n++;
     }
-    textC(ctx, kt('LEGENDS GLOW GOLD. ESC: BACK', 'LEGENDS GLOW GOLD. BACK: RETURN'), W / 2, 208, '#48818b');
+    textC(ctx, kt('LEGENDS GLOW GOLD. ESC: BACK', 'LEGENDS GLOW GOLD. BACK: RETURN'), W / 2, 208, '#6fa6b2');
   },
 };
 
 // ---------------- LEADERBOARD ----------------
 RT.scenes.board = {
   enter() {},
-  update(dt) { if (pressed('back') || pressed('ok')) setScene('dock'); },
+  update(dt) { if (pressed('back') || pressed('ok') || RT.tap) setScene('dock'); },
   draw() {
     ctx.fillStyle = '#1a1410'; ctx.fillRect(0, 0, W, H);
     textCS(ctx, 'THE BAR WALL', W / 2, 10, '#ffd040', 2);
-    textC(ctx, 'WHERE LEGENDS AND LIARS GET CHALKED UP', W / 2, 26, '#48818b');
+    textC(ctx, 'WHERE LEGENDS AND LIARS GET CHALKED UP', W / 2, 26, '#6fa6b2');
     const R = G.save.records;
     const rows = [
       ['BIGGEST CATCH', R.bigW > 0 ? fmtLb(R.bigW) + 'LB ' + R.bigName : '----'],
@@ -243,49 +296,49 @@ RT.scenes.board = {
       text(ctx, rows[i][0], 38, y + 5, '#cfe8e8');
       text(ctx, rows[i][1], 38 + 160, y + 5, '#ffd040');
     }
-    textC(ctx, 'ESC: BACK', W / 2, 208, '#48818b');
+    textC(ctx, 'ESC: BACK', W / 2, 208, '#6fa6b2');
   },
 };
 
 // ---------------- HIGH SCORES ----------------
 RT.scenes.ranks = {
   enter() {},
-  update(dt) { if (pressed('back') || pressed('ok')) setScene('dock'); },
+  update(dt) { if (pressed('back') || pressed('ok') || RT.tap) setScene('dock'); },
   draw() {
     ctx.fillStyle = '#101a14'; ctx.fillRect(0, 0, W, H);
     ctx.fillStyle = '#16241c';
     for (let y = 0; y < H; y += 14) ctx.fillRect(0, y, W, 2);
     textCS(ctx, 'LEADERBOARD', W / 2, 10, '#ffd040', 2);
-    textC(ctx, 'BIGGEST HAUL CASHED IN ONE TRIP', W / 2, 26, '#48818b');
+    textC(ctx, 'BIGGEST HAUL CASHED IN ONE TRIP', W / 2, 26, '#6fa6b2');
     const b = G.save.board;
     if (!b.length) {
       textC(ctx, 'NOBODY ON THE BOARD YET.', W / 2, 96, '#9fd');
-      textC(ctx, 'CATCH SOMETHING AND CASH IN AT THE DOCK.', W / 2, 110, '#48818b');
+      textC(ctx, 'CATCH SOMETHING AND CASH IN AT THE DOCK.', W / 2, 110, '#6fa6b2');
     } else {
       for (let i = 0; i < b.length; i++) {
         const y = 42 + i * 19;
         const me = b[i].name === (G.save.name || 'ANON');
         panel(ctx, 40, y, 240, 15);
-        text(ctx, (i + 1) + '.', 48, y + 5, i === 0 ? '#ffd040' : '#48818b');
+        text(ctx, (i + 1) + '.', 48, y + 5, i === 0 ? '#ffd040' : '#6fa6b2');
         text(ctx, b[i].name, 66, y + 5, me ? '#ffd040' : '#cfe8e8');
         if (me) text(ctx, '<YOU', 130, y + 5, '#7fa0a6');
         text(ctx, money(b[i].score), 226, y + 5, '#8f8');
       }
     }
-    textC(ctx, 'ESC: BACK', W / 2, 208, '#48818b');
+    textC(ctx, 'ESC: BACK', W / 2, 208, '#6fa6b2');
   },
 };
 
 // ---------------- DAILY REPORT ----------------
 RT.scenes.report = {
   enter() {},
-  update(dt) { if (pressed('back') || pressed('ok')) setScene('dock'); },
+  update(dt) { if (pressed('back') || pressed('ok') || RT.tap) setScene('dock'); },
   draw() {
     ctx.fillStyle = '#0e1c22'; ctx.fillRect(0, 0, W, H);
     panel(ctx, 30, 20, 260, 180);
     textCS(ctx, 'DAILY LAKE REPORT', W / 2, 30, '#ffd040', 2);
     textC(ctx, G.daily.dateStr, W / 2, 48, '#9fd');
-    const fod = FISH[G.daily.fod];
+    const fod = FISH[G.daily.fodL ? G.daily.fodL[G.lake] : G.daily.fod];
     const rows = [
       ['WEATHER', G.daily.weather.id],
       ['WIND', G.daily.windSpd === 0 ? 'CALM' : G.daily.windSpd + ' KT'],
@@ -298,8 +351,8 @@ RT.scenes.report = {
       text(ctx, rows[i][1], 150, y, '#ffd040');
     }
     if (G.daily.weather.id === 'FOG') textC(ctx, 'FOG: PATROLS SEE LESS. SO DO YOU.', W / 2, 146, '#9fd');
-    textC(ctx, G.daily.tip, W / 2, 162, '#48818b');
-    textC(ctx, 'ESC: BACK', W / 2, 186, '#48818b');
+    textC(ctx, G.daily.tip, W / 2, 162, '#6fa6b2');
+    textC(ctx, 'ESC: BACK', W / 2, 186, '#6fa6b2');
   },
 };
 
@@ -307,20 +360,28 @@ RT.scenes.report = {
 RT.scenes.summary = {
   enter() {
     const T = G.trip, R = G.save.records;
-    this.total = Math.round(coolerVal());
-    this.newHaul = this.total > R.haul && this.total > 0;
-    this.newBuzz = T.maxBuzz > R.buzz && this.total > 0;
-    endTrip(false);
+    const prevHaul = R.haul, prevBuzz = R.buzz;
+    const res = endTrip(false);
+    this.total = res.total;
+    this.mult = res.mult;
+    this.newHaul = this.total > prevHaul && this.total > 0;
+    this.newBuzz = T.maxBuzz > prevBuzz && this.total > 0;
     // did this haul land (or defend) a leaderboard spot?
     this.rank = 0;
     if (this.total > 0) {
       const i = G.save.board.findIndex(e => e.name === (G.save.name || 'ANON'));
       if (i >= 0 && G.save.board[i].score === this.total) this.rank = i + 1;
     }
+    this.t = 0;
+    this.shownN = 0;
+    this.len = Math.min(9, T.cooler.length);
     SFX.fanfare();
   },
   update(dt) {
-    if (pressed('ok') || pressed('act')) { SFX.cash(); setScene('dock'); }
+    this.t += dt;
+    const n = Math.min(this.len, Math.floor(this.t / 0.15));
+    if (n > this.shownN) { this.shownN = n; SFX.tick(0.8); }
+    if (pressed('ok') || pressed('act') || RT.tap) { SFX.cash(); setScene('dock'); }
   },
   draw() {
     const T = G.trip;
@@ -334,22 +395,28 @@ RT.scenes.summary = {
     if (T.cooler.length === 0) {
       textC(ctx, 'EMPTY COOLER. THE LAKE WON TODAY.', W / 2, 100, '#9fd');
     } else {
-      const shown = T.cooler.slice(0, 9);
+      const shown = T.cooler.slice(0, this.shownN);
       for (let i = 0; i < shown.length; i++) {
         const f = shown[i], y = 52 + i * 12;
-        text(ctx, f.name, 32, y, '#cfe8e8');
+        const sp = FISH[f.id];
+        drawFish(ctx, 41, y + 3, clamp(11 + f.w * 0.7, 11, 19), sp ? sp.col : '#9fd');
+        text(ctx, f.name, 56, y, '#cfe8e8');
         text(ctx, fmtLb(f.w) + 'LB', 170, y, '#9fd');
         text(ctx, money(f.val), 212, y, '#8f8');
         if (f.buzz > BUZZ_LIMIT) text(ctx, 'X' + (Math.round(buzzMult(f.buzz) * 10) / 10), 256, y, '#fc8');
       }
-      if (T.cooler.length > 9) text(ctx, '+' + (T.cooler.length - 9) + ' MORE...', 32, 52 + 9 * 12, '#48818b');
+      if (T.cooler.length > 9) text(ctx, '+' + (T.cooler.length - 9) + ' MORE...', 32, 52 + 9 * 12, '#6fa6b2');
     }
     text(ctx, 'TOTAL', 32, 182, '#fff', 2);
-    text(ctx, money(this.total), 100, 182, '#8f8', 2);
-    if (this.rank) text(ctx, 'LEADERBOARD #' + this.rank + '!', 190, 170, this.rank === 1 ? '#ffd040' : '#9fd');
-    if (this.newHaul) text(ctx, 'NEW HAUL RECORD!', 190, 180, '#ffd040');
-    if (this.newBuzz) text(ctx, 'DRUNKEST TRIP YET!', 190, 190, '#fc8');
-    textC(ctx, kt('ENTER: BACK TO THE DOCK', 'OK: BACK TO THE DOCK'), W / 2, 208, '#48818b');
+    const ctUp = clamp((this.t - this.len * 0.15) / 0.6, 0, 1);
+    text(ctx, money(Math.round(this.total * ctUp)), 100, 182, '#8f8', 2);
+    if (this.mult > 1.001 && this.total > 0) text(ctx, 'STREAK +' + Math.round((this.mult - 1) * 100) + '%', 32, 174, '#fc8');
+    if (this.rank) text(ctx, 'LEADERBOARD #' + this.rank + '!', 190, 162, this.rank === 1 ? '#ffd040' : '#9fd');
+    if (this.newHaul) text(ctx, 'NEW HAUL RECORD!', 190, 172, '#ffd040');
+    if (this.newBuzz) text(ctx, 'DRUNKEST TRIP YET!', 190, 182, '#fc8');
+    const ng = RT.nextGoal();
+    if (ng) textC(ctx, 'NEXT: ' + ng.name + ' - ' + money(ng.cost - G.save.cash) + ' TO GO', W / 2, 198, '#9fd');
+    textC(ctx, kt('ENTER: BACK TO THE DOCK', 'OK: BACK TO THE DOCK'), W / 2, 208, '#6fa6b2');
   },
 };
 
@@ -373,6 +440,10 @@ RT.scenes.breath = {
       if (this.doneT > 1.6) {
         if (this.done === 'pass') {
           T.suspGrace = 9;
+          if (this.from === 'fish' && T.world) {
+            const sp = T.world.spots.find(s => s.id === T.spotId);
+            if (sp) { setScene('fish', { spot: sp }); return; }
+          }
           setScene('boat', {});
         } else setScene('bust');
       }
@@ -382,9 +453,9 @@ RT.scenes.breath = {
     this.jit += (Math.random() - 0.5) * b * 14 * dt;
     this.jit *= 0.95;
     this.nx = Math.sin(this.t * (2.0 + b * 0.32)) * 46 + this.jit;
-    const gw = Math.max(2, 16 - Math.max(0, b - BUZZ_LIMIT) * 6 - b * 0.8);
+    const gw = Math.max(2, 16 - Math.max(0, b - BUZZ_LIMIT) * 3.5 - b * 0.8);
     this.gw = gw;
-    if (this.t > 0.8 && (pressed('act') || pressed('ok'))) {
+    if (this.t > 0.8 && (pressed('act') || pressed('ok') || RT.tap)) {
       if (Math.abs(this.nx) <= gw) { this.done = 'pass'; SFX.near(); }
       else { this.done = 'fail'; SFX.busted(); }
     }
@@ -422,7 +493,7 @@ RT.scenes.bust = {
     endTrip(true);
   },
   update(dt) {
-    if (pressed('ok') || pressed('act')) setScene('dock');
+    if (pressed('ok') || pressed('act') || RT.tap) setScene('dock');
   },
   draw() {
     ctx.fillStyle = '#0a0a10'; ctx.fillRect(0, 0, W, H);
@@ -434,6 +505,6 @@ RT.scenes.bust = {
     textC(ctx, 'COOLER CONFISCATED: ' + this.fish + ' FISH (' + money(this.lost) + ')', W / 2, 122, '#f88');
     textC(ctx, 'NO-ARREST STREAK RESET', W / 2, 134, '#f88');
     textC(ctx, "EARL POSTED YOUR MUGSHOT AT THE BAR.", W / 2, 152, '#9fd');
-    textC(ctx, kt('ENTER: SLEEP IT OFF', 'OK: SLEEP IT OFF'), W / 2, 190, '#48818b');
+    textC(ctx, kt('ENTER: SLEEP IT OFF', 'OK: SLEEP IT OFF'), W / 2, 190, '#6fa6b2');
   },
 };

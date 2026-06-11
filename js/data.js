@@ -4,11 +4,11 @@ const BUZZ_LIMIT = 4;
 const TRIP_START = 16 * 60;      // 4:00 PM
 const TRIP_END = 21 * 60;        // 9:00 PM sundown
 const LAST_CALL = 20 * 60 + 30;  // banner warning
-const CANS_PER_TRIP = 12;
+const CANS_PER_TRIP = 8;
 
 const RODS = [
   { name: 'GARAGE SALE ROD', cost: 0, green: 9, snapT: 0.8, reel: 9 },
-  { name: 'DECENT SPINCASTER', cost: 300, green: 12, snapT: 1.1, reel: 11 },
+  { name: 'DECENT SPINCASTER', cost: 200, green: 12, snapT: 1.1, reel: 11 },
   { name: 'PRO BAITCASTER', cost: 900, green: 15, snapT: 1.4, reel: 13 },
   { name: 'LEGEND STICK', cost: 2200, green: 19, snapT: 1.8, reel: 16 },
 ];
@@ -47,10 +47,10 @@ const FISH = {
 const LAKES = [
   {
     name: 'SNOOZY POND', unlock: 0, patrol: 0, w: 760, h: 540,
-    spotN: 4, rockN: 5, sweep: 0,
+    spotN: 4, rockN: 5, sweep: 0.4,
     fish: [['bluegill', 50], ['perch', 30], ['crappie', 16], ['bullhead', 10], ['largemouth', 4]],
     legend: 'grandpagill',
-    blurb: 'NO LAW FOR MILES. SMALL FISH, EASY LIVING.',
+    blurb: 'SMALL FISH, EASY LIVING. THE ODD SHORE PATROL.',
   },
   {
     name: 'BIGMOUTH LAKE', unlock: 250, patrol: 1, w: 1120, h: 760,

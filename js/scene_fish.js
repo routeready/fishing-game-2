@@ -24,8 +24,12 @@ RT.scenes.fish = {
     this.super = false;
     this.hunkT = 0;
     this.ripples = [];
-    // patrol sweeps while anchored
-    this.sweep = { st: 'off', t: L.sweep > 0 ? rnd(25, 60) / L.sweep : 1e9, rolled: false, dir: 1 };
+    // patrol sweeps while anchored — state lives on the trip so weighing
+    // anchor and dropping it again can't cancel an incoming patrol
+    this.sweep = T.sweep || (T.sweep = { st: 'off', t: L.sweep > 0 ? rnd(25, 60) / L.sweep : 1e9, rolled: false, dir: 1 });
+    T.spotId = this.spot.id; // so a passed breathalyzer can put us back here
+    this.freeze = 0;
+    this.reelT = 0; this.creakT = 0; this.cutArm = 0; this.tickT = 0; this.castTickT = 0;
     // project this spot's weed clumps onto the casting view
     this.weeds = this.spot.weeds.map(wd => ({
       x: clamp(160 + wd.dx * 1.9, 30, 290),
@@ -78,6 +82,7 @@ RT.scenes.fish = {
     const T = G.trip;
     const { id, f, w } = this.pickFish();
     this.fish = { id, f, w };
+    this.biteWin = 0;
     this.startDist = 12 + w * 1.1 + this.power * 10;
     this.distM = this.startDist;
     this.tension = 50;
@@ -86,18 +91,20 @@ RT.scenes.fish = {
     this.fishX = this.lure.x;
     this.mode = 'fight';
     SFX.hook();
+    RT.addShake(2.5, 0.25);
+    RT.vibrate(40);
     if (f.legend) { this.say('SOMETHING HUGE!!', 2, '#ffd040'); SFX.horn(); }
   },
 
   land() {
     const T = G.trip;
     const { id, f, w } = this.fish;
-    const fod = id === G.daily.fod;
-    const bm = buzzMult(T.buzz);
+    const fod = id === (G.daily.fodL ? G.daily.fodL[T.lake] : G.daily.fod);
+    const bm = buzzMult(this.super ? this.superBuzz : T.buzz);
     let val = f.base * (0.5 + 1.5 * (w / f.wMax)) * bm * (fod ? 2 : 1);
     val = Math.round(val);
     const kept = T.cooler.length < coolerCap();
-    if (kept) T.cooler.push({ id, name: f.name, w, val, buzz: T.buzz });
+    if (kept) T.cooler.push({ id, name: f.name, w, val, buzz: this.super ? this.superBuzz : T.buzz });
     // trophies & records always count — the story is true even if the cooler's full
     const tr = G.save.trophies[id] || { w: 0, n: 0 };
     tr.n++; tr.w = Math.max(tr.w, w);
@@ -106,9 +113,13 @@ RT.scenes.fish = {
     let newBig = false;
     if (w > R.bigW) { R.bigW = w; R.bigName = f.name; newBig = true; }
     persist();
-    this.card = { f, w, val, bm, fod, kept, newBig };
+    this.card = { f, w, val, bm, fod, kept, newBig, t: 0 };
     this.mode = 'card';
+    this.ripples.push({ x: this.fishX, y: 148, t: 0 });
+    RT.addShake(2, 0.2);
+    RT.vibrate(40);
     this.fish = null;
+    if (f.legend) RT.addFlash('#ffd040', 0.3);
     if (f.legend || newBig) SFX.fanfare(); else SFX.land();
     if (f.legend) earlSay('EARL: ' + f.name + '!! I HEARD IT WAS A MYTH!!', 5);
     else if (!kept) earlSay("EARL: COOLER'S FULL, BUD. BACK SHE GOES.", 4);
@@ -138,6 +149,15 @@ RT.scenes.fish = {
       if (hunkered) {
         this.hunkT += dt;
         if (this.mode === 'fight' && this.hunkT > 0.8) this.loseFish('YOU LET IT GO... AND LAID LOW.');
+        // laying low mostly works... unless they spot the empties
+        if (!S.rolled && S.t < 2.1) {
+          S.rolled = true;
+          if (T.buzz > BUZZ_LIMIT) {
+            const fogK = G.daily.weather.id === 'FOG' ? 0.55 : 1;
+            const p = ((T.buzz - BUZZ_LIMIT) / (10 - BUZZ_LIMIT)) * 0.85 * fogK * 0.15;
+            if (Math.random() < p) { setScene('breath', { from: 'fish' }); return; }
+          }
+        }
       } else {
         this.hunkT = 0;
         if (T.drinking > 0) { // caught red-handed, can in the air
@@ -177,6 +197,11 @@ RT.scenes.fish = {
     if (this.msgT > 0) { this.msgT -= dt; if (this.msgT <= 0) this.msg = null; }
     this.sweepUpdate(dt);
     if (G.sceneName !== 'fish') return; // sweep may have pulled us over
+    if (this.freeze > 0) {
+      this.freeze -= dt;
+      if (this.biteWin > 0 && pressed('act')) { this.hook(); }
+      return;
+    }
     for (const rp of this.ripples) rp.t += dt;
     this.ripples = this.ripples.filter(rp => rp.t < 1.2);
 
@@ -190,12 +215,13 @@ RT.scenes.fish = {
       if (held('left')) this.ret.x -= spd * dt;
       if (held('right')) this.ret.x += spd * dt;
       if (held('up')) this.ret.y -= spd * 0.8 * dt;
-      if (Keys.held.down) this.ret.y += spd * 0.8 * dt;
+      if (Keys.held.down && !Keys.held.lay) this.ret.y += spd * 0.8 * dt;
       this.ret.x = clamp(this.ret.x, 24, 296);
       this.ret.y = clamp(this.ret.y, 48, 140);
       if (pressed('hold') && !T.holdUsed && T.buzz >= 6) {
         T.holdUsed = true;
         this.super = true;
+        this.superBuzz = T.buzz; // the catch pays at the buzz you earned it with
         T.buzz = 0;
         earlSay('EARL: I GOT YER BEER. NOW THROW LIKE YOU MEAN IT.', 3.5);
         SFX.fanfare();
@@ -214,8 +240,12 @@ RT.scenes.fish = {
       if (this.power >= 1) { this.power = 1; this.pDir = -1; }
       if (this.power <= 0) { this.power = 0; this.pDir = 1; }
       if (this.super) this.power = this.needed; // Earl steadies your arm
+      this.castTickT -= dt;
+      if (this.castTickT <= 0) { this.castTickT = 0.07; SFX.tick(this.power); }
       if (pressed('act') || this.super) {
         const err = this.power - this.needed;
+        this.perfect = Math.abs(err) < 0.03 && !this.super;
+        if (this.perfect) { this.say('PERFECT CAST!', 1.3, '#8f8'); SFX.near(); }
         const sw = this.swayOff();
         const wind = G.daily.windSpd * 3;
         const lx = clamp(this.ret.x + sw.x + Math.cos(G.daily.windDir) * wind, 16, 304);
@@ -235,7 +265,7 @@ RT.scenes.fish = {
         SFX.splash();
         this.mode = 'wait';
         this.waitT = 0;
-        this.biteIn = this.super ? 1.2 : this.biteTime();
+        this.biteIn = this.super ? 1.2 : this.biteTime() * (this.perfect ? 0.6 : 1);
         this.nibbleIn = rnd(1, 3);
         this.biteWin = 0;
       }
@@ -259,8 +289,12 @@ RT.scenes.fish = {
         if (!hunkered) this.biteIn -= dt;
         if (this.biteIn <= 0) {
           this.biteWin = RT.touch ? 0.7 : 0.55; // touchscreens get a hair more strike time
-          SFX.bite();
+          this.biteWinMax = this.biteWin;
+          this.freeze = 0.1; // hitstop: the strike is an event (and donates reaction time)
+          SFX.bite(); RT.addFlash('#ffffff', 0.1); RT.addShake(2, 0.15); RT.vibrate(60);
+          this.ripples.push({ x: this.lure.x - 6, y: this.lure.y + 1, t: 0.1 });
           this.ripples.push({ x: this.lure.x, y: this.lure.y, t: 0 });
+          this.ripples.push({ x: this.lure.x + 6, y: this.lure.y + 1, t: 0.1 });
         } else if (pressed('act')) {
           this.say('TOO SOON - SPOOKED EM', 1.4, '#f88');
           this.biteIn += 2.5;
@@ -279,6 +313,7 @@ RT.scenes.fish = {
         if (this.runIn <= 0) {
           this.run = true;
           this.runDur = rnd(0.7, 1.4) + f.fight * 0.9;
+          this.runMax = this.runDur;
           this.runIn = rnd(1.5, 3.2) * (1.1 - f.fight * 0.5);
           SFX.splash();
         }
@@ -286,7 +321,8 @@ RT.scenes.fish = {
       const reeling = held('act') && !hunkered;
       if (reeling) {
         this.tension += (40 + (this.run ? 28 + f.fight * 48 : 0)) * dt;
-        if (Math.floor(G.t * 12) % 2 === 0) SFX.reel();
+        this.reelT -= dt;
+        if (this.reelT <= 0) { this.reelT = 1 / 6; SFX.reel(); }
       } else {
         this.tension -= 52 * dt;
         if (this.run) this.tension += 20 * dt;
@@ -304,10 +340,16 @@ RT.scenes.fish = {
       } else if (this.run) {
         this.distM = Math.min(this.startDist + 15, this.distM + 3 * dt);
       }
-      // line snap
+      // line snap — you can feel it coming
       if (this.tension > 95) {
         this.snapAcc += dt;
-        if (this.snapAcc > rod.snapT) { SFX.snap(); this.loseFish('LINE SNAPPED!'); return; }
+        RT.addShake(0.6 + 2.5 * this.snapAcc / rod.snapT, 0.07);
+        this.creakT -= dt;
+        if (this.creakT <= 0) { this.creakT = 0.25; SFX.creak(); }
+        if (this.snapAcc > rod.snapT) {
+          SFX.snap(); RT.addShake(3, 0.35); RT.addFlash('#f04040', 0.18); RT.vibrate(80);
+          this.loseFish('LINE SNAPPED!'); return;
+        }
       } else this.snapAcc = Math.max(0, this.snapAcc - dt * 2);
       // slack
       if (this.tension < 4 && this.run) {
@@ -318,9 +360,20 @@ RT.scenes.fish = {
       this.fishX += Math.sin(this.swayT * 1.9 + this.startDist) * 22 * dt * (this.run ? 2.5 : 1);
       this.fishX = clamp(this.fishX, 30, 290);
       if (this.distM <= 0) { this.land(); return; }
-      if (pressed('back')) { SFX.off(); this.loseFish('CUT IT LOOSE.'); return; }
+      if (this.cutArm > 0) this.cutArm -= dt;
+      if (pressed('back')) {
+        if (this.cutArm > 0) { SFX.off(); this.loseFish('CUT IT LOOSE.'); return; }
+        this.cutArm = 1.2;
+        this.say(kt('ESC AGAIN TO CUT LOOSE', 'BACK AGAIN TO CUT LOOSE'), 1.2, '#f88');
+      }
     } else if (this.mode === 'card') {
-      if (pressed('act') || pressed('ok')) {
+      const c = this.card;
+      c.t += dt;
+      if (c.val > 0 && c.t > 0.3 && c.t < 0.95) {
+        this.tickT -= dt;
+        if (this.tickT <= 0) { this.tickT = 0.08; SFX.tick(0.6); }
+      }
+      if (pressed('act') || pressed('ok') || RT.tap) {
         this.card = null; this.lure = null; this.super = false;
         this.mode = 'aim';
       }
@@ -427,8 +480,9 @@ RT.scenes.fish = {
       ctx.beginPath(); ctx.moveTo(rodTip.x, rodTip.y); ctx.lineTo(this.lure.x, ly - 2); ctx.stroke();
       ctx.fillStyle = '#f03030'; ctx.fillRect(Math.round(this.lure.x) - 2, ly - 3, 4, 2);
       ctx.fillStyle = '#fff'; ctx.fillRect(Math.round(this.lure.x) - 2, ly - 1, 4, 2);
-      if (this.biteWin > 0 && Math.floor(G.t * 8) % 2 === 0) {
-        textCS(ctx, '!', this.lure.x, ly - 16, '#ffd040', 2);
+      if (this.biteWin > 0) {
+        const rise = (1 - this.biteWin / (this.biteWinMax || 0.55)) * 7;
+        textCS(ctx, '!', this.lure.x, ly - 18 - rise, '#ffd040', 3, '#402000');
       }
     }
     if (this.mode === 'fight' && this.fish) {
@@ -436,18 +490,24 @@ RT.scenes.fish = {
       const k = clamp(this.distM / this.startDist, 0, 1);
       const fy = lerp(150, 52, k);
       const fx = this.fishX;
-      ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+      const dz = this.snapAcc / RODS[G.save.rod].snapT;
+      ctx.strokeStyle = dz > 0 ? 'rgba(255,' + Math.round(220 - 170 * dz) + ',' + Math.round(220 - 170 * dz) + ',0.8)' : 'rgba(255,255,255,0.6)';
       ctx.beginPath(); ctx.moveTo(rodTip.x, rodTip.y);
       ctx.quadraticCurveTo((rodTip.x + fx) / 2, (rodTip.y + fy) / 2 + 12, fx, fy);
       ctx.stroke();
-      ctx.fillStyle = this.fish.f.col;
-      ctx.fillRect(Math.round(fx) - 4, Math.round(fy) - 2, 8, 3);
+      // the fish leaps clear of the water during a run
+      const runK = this.run && this.runMax ? 1 - this.runDur / this.runMax : 0;
+      const jump = this.run ? Math.sin(runK * Math.PI) * 13 : 0;
+      const fl = clamp(10 + this.fish.w * 0.9, 10, 26);
+      drawFish(ctx, fx, fy - jump, fl, this.fish.f.col);
       if (this.run) {
-        ctx.fillStyle = 'rgba(255,255,255,0.8)';
-        for (let i = 0; i < 4; i++) {
-          ctx.fillRect(Math.round(fx + Math.sin(G.t * 20 + i * 2) * 8), Math.round(fy - 3 + (i % 2) * 5), 2, 2);
+        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        for (let i = 0; i < 6; i++) {
+          const sx2 = fx + Math.sin(G.t * 17 + i * 2.1) * (6 + jump * 0.5);
+          const sy2 = fy + 1 - jump * (0.2 + (i % 3) * 0.3);
+          ctx.fillRect(Math.round(sx2), Math.round(sy2), 1 + (i % 2), 1);
         }
-        if (Math.floor(G.t * 6) % 2 === 0) textCS(ctx, 'RUN! EASE OFF!', fx, fy - 14, '#f66');
+        if (Math.floor(G.t * 6) % 2 === 0) textCS(ctx, 'RUN! EASE OFF!', fx, fy - jump - 16, '#f66');
       }
     }
 
@@ -483,6 +543,11 @@ RT.scenes.fish = {
     if (this.mode === 'fight') {
       const bx = 10, by = 66, bh = 80;
       panel(ctx, bx - 3, by - 12, 18, bh + 24);
+      if (this.snapAcc > 0) {
+        ctx.fillStyle = '#f03030';
+        ctx.fillRect(bx - 3, by - 12, 18, 1); ctx.fillRect(bx - 3, by + bh + 11, 18, 1);
+        ctx.fillRect(bx - 3, by - 12, 1, bh + 24); ctx.fillRect(bx + 14, by - 12, 1, bh + 24);
+      }
       text(ctx, 'T', bx + 2, by - 9, '#fff');
       ctx.fillStyle = '#1a1010'; ctx.fillRect(bx, by, 10, bh);
       const rod = RODS[G.save.rod];
@@ -531,26 +596,40 @@ RT.scenes.fish = {
       textCS(ctx, 'GLUG GLUG', 160, 150, '#ffd040');
     }
 
-    // catch card
+    // catch card: slides in, the fish lands on it, the cash counts up
     if (this.mode === 'card' && this.card) {
       const c = this.card;
-      panel(ctx, 50, 60, 220, 86);
-      textC(ctx, c.f.legend ? '** LEGENDARY **' : 'FISH ON BOARD!', W / 2, 66, c.f.legend ? '#ffd040' : '#8f8');
-      textC(ctx, c.f.name, W / 2, 78, '#fff', 2);
-      textC(ctx, fmtLb(c.w) + ' LB', W / 2, 94, '#9fd');
-      let line = money(c.val);
+      const k = Math.min(1, (c.t || 0) / 0.25);
+      const py = Math.round(lerp(-120, 50, 1 - (1 - k) * (1 - k)));
+      panel(ctx, 40, py, 240, 110);
+      textC(ctx, c.f.legend ? '** LEGENDARY **' : 'FISH ON BOARD!', W / 2, py + 6, c.f.legend ? '#ffd040' : '#8f8');
+      if (c.f.legend) starburst(ctx, W / 2, py + 32, G.t);
+      drawFish(ctx, W / 2, py + 32, (28 + 38 * clamp(c.w / c.f.wMax, 0, 1)) * Math.min(1, c.t / 0.35 + 0.25), c.f.col);
+      textC(ctx, c.f.name, W / 2, py + 50, '#fff', 2);
+      textC(ctx, fmtLb(c.w) + ' LB', W / 2, py + 66, '#9fd');
+      const shownVal = Math.round(c.val * clamp((c.t - 0.3) / 0.65, 0, 1));
+      let line = money(shownVal);
       if (c.bm > 1.05) line += '  (BUZZ X' + (Math.round(c.bm * 10) / 10) + ')';
       if (c.fod) line += '  FISH OF THE DAY X2!';
-      textC(ctx, line, W / 2, 106, '#8f8');
-      if (!c.kept) textC(ctx, 'COOLER FULL - RELEASED, NO CASH', W / 2, 118, '#f88');
-      if (c.newBig) textC(ctx, 'NEW PERSONAL BEST!', W / 2, 128, '#ffd040');
-      textC(ctx, kt('ENTER: KEEP FISHING', 'OK: KEEP FISHING'), W / 2, 138, '#48818b');
+      textC(ctx, line, W / 2, py + 76, '#8f8');
+      if (!c.kept) textC(ctx, 'COOLER FULL - RELEASED, NO CASH', W / 2, py + 86, '#f88');
+      if (c.newBig) textC(ctx, 'NEW PERSONAL BEST!', W / 2, py + 94, '#ffd040');
+      textC(ctx, kt('ENTER: KEEP FISHING', 'OK: KEEP FISHING'), W / 2, py + 102, '#6fa6b2');
     }
 
     if (this.msg) textCS(ctx, this.msg, W / 2, 80, this.msgCol, 2);
 
-    // dusk + fog
-    if (dk > 0) { ctx.fillStyle = 'rgba(60,20,60,' + (dk * 0.32).toFixed(3) + ')'; ctx.fillRect(0, 0, W, H); }
+    // weather + time of day washes
+    if (G.daily.weather.id === 'OVERCAST') { ctx.fillStyle = 'rgba(70,82,96,0.16)'; ctx.fillRect(0, 0, W, H); }
+    if (G.daily.weather.id === 'BREEZY') {
+      ctx.fillStyle = 'rgba(8,28,38,0.13)';
+      const wdir = Math.cos(G.daily.windDir) >= 0 ? 1 : -1;
+      for (let i = 0; i < 3; i++) {
+        const cx2 = ((i * 160 + G.t * (10 + G.daily.windSpd * 4) * wdir) % (W + 220) + W + 220) % (W + 220) - 110;
+        ctx.beginPath(); ctx.ellipse(cx2, 60 + i * 46, 78, 26, 0, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    RT.duskDraw();
     if (G.daily.weather.id === 'FOG') { ctx.fillStyle = 'rgba(210,220,220,0.15)'; ctx.fillRect(0, 0, W, H); }
 
     earlDraw();
@@ -567,17 +646,26 @@ RT.scenes.fish = {
     ctx.fillStyle = '#8a2430'; ctx.fillRect(x - 9, y + 6, 18, 17); // shirt
     ctx.fillStyle = '#3a5a30'; ctx.fillRect(x - 7, y + 8, 14, 13); // vest
     ctx.fillStyle = '#ffd040'; ctx.fillRect(x - 3, y + 13, 6, 3);  // patch
-    // head + cap
-    ctx.fillStyle = '#d8a878'; ctx.fillRect(x - 4, y - 2, 8, 8);
-    ctx.fillStyle = '#304a8a'; ctx.fillRect(x - 5, y - 4, 10, 4);
-    // rod arm + rod (bends in a fight)
+    // head + cap (tips back mid-sip)
+    const tip = T.drinking > 0 ? 1 : 0;
+    ctx.fillStyle = '#d8a878'; ctx.fillRect(x - 4, y - 2 - tip, 8, 8);
+    ctx.fillStyle = '#304a8a'; ctx.fillRect(x - 5 - tip, y - 4 - tip, 10, 4);
+    // rod arm + rod: cocked back on power, swung forward on the cast,
+    // bent double in a fight
     ctx.fillStyle = '#8a2430'; ctx.fillRect(x + 8, y + 6, 4, 8);
     ctx.strokeStyle = '#d8c8a8'; ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(x + 11, y + 8);
     if (this.mode === 'fight') ctx.quadraticCurveTo(x + 20, y - 24, x + 14, y - 32);
+    else if (this.mode === 'power') ctx.quadraticCurveTo(x + 27, y - 6, x + 32, y - 20);
+    else if (this.mode === 'fly') ctx.quadraticCurveTo(x + 12, y - 26, x + 2, y - 28);
     else ctx.quadraticCurveTo(x + 22, y - 18, x + 18, y - 30);
     ctx.stroke();
+    if (this.mode === 'fight' && held('act')) {
+      const ca = G.t * 14;
+      ctx.fillStyle = '#d8c8a8';
+      ctx.fillRect(Math.round(x + 10 + Math.cos(ca) * 2), Math.round(y + 11 + Math.sin(ca) * 2), 2, 2);
+    }
     // beer arm
     if (T.drinking > 0) {
       ctx.fillStyle = '#8a2430'; ctx.fillRect(x - 13, y, 4, 8);
