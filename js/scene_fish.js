@@ -258,7 +258,7 @@ RT.scenes.fish = {
         }
         if (!hunkered) this.biteIn -= dt;
         if (this.biteIn <= 0) {
-          this.biteWin = 0.55;
+          this.biteWin = RT.touch ? 0.7 : 0.55; // touchscreens get a hair more strike time
           SFX.bite();
           this.ripples.push({ x: this.lure.x, y: this.lure.y, t: 0 });
         } else if (pressed('act')) {
@@ -387,7 +387,7 @@ RT.scenes.fish = {
       const phase = Math.floor(G.t * 5) % 2;
       ctx.fillStyle = phase ? '#f03030' : '#3060f0';
       ctx.fillRect(S.dir > 0 ? 6 : W - 12, 12, 6, 5);
-      if (phase) textCS(ctx, 'PATROL COMING - HOLD S TO LAY LOW', W / 2, 38, '#f66');
+      if (phase) textCS(ctx, kt('PATROL COMING - HOLD S TO LAY LOW', 'PATROL COMING - HOLD LAY LOW'), W / 2, 38, '#f66');
     } else if (S.st === 'pass') {
       const k = 1 - S.t / 4.2;
       const px = S.dir > 0 ? -30 + k * (W + 60) : W + 30 - k * (W + 60);
@@ -498,7 +498,7 @@ RT.scenes.fish = {
       // line distance, bottom-right like the reference
       textS(ctx, Math.max(0, Math.ceil(this.distM)) + 'M', 246, H - 22, '#fff', 2);
       text(ctx, 'LINE', 248, H - 9, '#fff');
-      text(ctx, 'HOLD SPACE: REEL', 110, H - 10, '#9fd');
+      text(ctx, kt('HOLD SPACE: REEL', 'HOLD CAST: REEL'), 110, H - 10, '#9fd');
     } else {
       textS(ctx, (this.lure ? Math.round(dist(rodTip.x, rodTip.y, this.lure.x, this.lure.y) / 6) : 0) + 'M', 246, H - 22, '#fff', 2);
       text(ctx, 'LINE', 248, H - 9, '#fff');
@@ -515,13 +515,13 @@ RT.scenes.fish = {
 
     // contextual hints
     if (this.mode === 'aim') {
-      let hint = 'AIM + SPACE: CAST   B: BEER   ESC: ANCHOR UP';
+      let hint = kt('AIM + SPACE: CAST   B: BEER   ESC: ANCHOR UP', 'AIM: D-PAD   THEN TAP CAST   BACK: ANCHOR UP');
       textCS(ctx, hint, W / 2, H - 36, '#cfe8e8');
       if (!T.holdUsed && T.buzz >= 6 && Math.floor(G.t * 2) % 2 === 0) {
-        textCS(ctx, 'H: "HOLD MY BEER" SUPER-CAST READY!', W / 2, H - 46, '#ffd040');
+        textCS(ctx, kt('H: "HOLD MY BEER" SUPER-CAST READY!', 'HMB!: SUPER-CAST READY!'), W / 2, H - 46, '#ffd040');
       }
     } else if (this.mode === 'wait' && this.biteWin <= 0) {
-      textCS(ctx, 'WAIT FOR THE BITE... SPACE TO STRIKE', W / 2, H - 36, '#cfe8e8');
+      textCS(ctx, kt('WAIT FOR THE BITE... SPACE TO STRIKE', 'WAIT FOR THE BITE... TAP CAST TO STRIKE'), W / 2, H - 36, '#cfe8e8');
     }
     if (held('lay') && (S.st === 'warn' || S.st === 'pass')) {
       textCS(ctx, 'LAYING LOW...', W / 2, 120, '#9fd', 2);
@@ -544,7 +544,7 @@ RT.scenes.fish = {
       textC(ctx, line, W / 2, 106, '#8f8');
       if (!c.kept) textC(ctx, 'COOLER FULL - RELEASED, NO CASH', W / 2, 118, '#f88');
       if (c.newBig) textC(ctx, 'NEW PERSONAL BEST!', W / 2, 128, '#ffd040');
-      textC(ctx, 'ENTER: KEEP FISHING', W / 2, 138, '#48818b');
+      textC(ctx, kt('ENTER: KEEP FISHING', 'OK: KEEP FISHING'), W / 2, 138, '#48818b');
     }
 
     if (this.msg) textCS(ctx, this.msg, W / 2, 80, this.msgCol, 2);

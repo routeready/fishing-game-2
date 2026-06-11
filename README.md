@@ -7,13 +7,20 @@ drink to catch more, but get too tipsy and the cops will catch *you*.
 
 ## Play
 
-Open `index.html` in a browser. That's it. (Or serve the folder:
+**Live:** https://routeready.github.io/fishing-game-2/ — works on phones.
+
+Or open `index.html` in a browser. That's it. (Or serve the folder:
 `npx serve .` / `python3 -m http.server`.)
+
+The game asks who's fishing at boot — each name competes on the local
+leaderboard (best single-trip haul, saved in the browser).
 
 ## Controls
 
-On phones and tablets an on-screen d-pad and buttons appear automatically
-(CAST is the big button; Y/N pop up when Earl offers you a freebie).
+On phones and tablets touch controls appear automatically: d-pad bottom-left
+for steering and aiming, the action block with the big CAST button bottom
+center, and a hold-to-drive GAS button bottom-right. Y/N pop up when Earl
+offers you a freebie. All on-screen hints adapt to the touch buttons.
 
 | Key | Action |
 | --- | --- |

@@ -38,3 +38,6 @@ function money(n) {
 }
 
 function fmtLb(w) { return (Math.round(w * 10) / 10).toFixed(1); }
+
+// Keyboard vs touch wording for on-screen hints (touch.js sets RT.touch).
+function kt(kbd, tch) { return RT.touch ? tch : kbd; }

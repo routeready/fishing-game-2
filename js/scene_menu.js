@@ -34,7 +34,9 @@ RT.scenes.title = {
     textCS(ctx, 'REEL', W / 2, 112, '#ffd040', 5, '#402000');
     textCS(ctx, 'TROUBLE', W / 2, 142, '#f06040', 5, '#401010');
     textC(ctx, 'A PUSH-YOUR-LUCK FISHING DISASTER', W / 2, 174, '#9fd');
-    if (Math.floor(G.t * 2) % 2 === 0) textC(ctx, 'PRESS ENTER', W / 2, 188, '#fff', 2);
+    if (Math.floor(G.t * 2) % 2 === 0) textC(ctx, kt('PRESS ENTER', 'TAP CAST'), W / 2, 188, '#fff', 2);
+    const champ = G.save.board[0];
+    if (champ) textC(ctx, 'CHAMP: ' + champ.name + ' ' + money(champ.score), W / 2, 200, '#9fd');
     textC(ctx, 'DRINK RESPONSIBLY. IN-GAME, GO NUTS.', W / 2, 208, '#48666b');
   },
 };
@@ -136,7 +138,7 @@ RT.scenes.lakes = {
         text(ctx, next ? 'UNLOCK ' + money(L.unlock) : 'LOCKED', 220, y + 6, next && G.save.cash >= L.unlock ? '#8f8' : '#f88');
       }
     }
-    textC(ctx, 'ENTER: CHOOSE/UNLOCK   ESC: BACK', W / 2, 204, '#48818b');
+    textC(ctx, kt('ENTER: CHOOSE/UNLOCK   ESC: BACK', 'OK: CHOOSE/UNLOCK   BACK: RETURN'), W / 2, 204, '#48818b');
   },
 };
 
@@ -184,7 +186,7 @@ RT.scenes.shop = {
       } else text(ctx, 'NEXT: NOTHING BEATS IT', 22, y + 32, '#48818b');
       text(ctx, r.desc, 152, y + 5, '#48818b');
     }
-    textC(ctx, 'ENTER: BUY NEXT TIER   ESC: BACK', W / 2, 204, '#48818b');
+    textC(ctx, kt('ENTER: BUY NEXT TIER   ESC: BACK', 'OK: BUY NEXT TIER   BACK: RETURN'), W / 2, 204, '#48818b');
   },
 };
 
@@ -214,7 +216,7 @@ RT.scenes.trophy = {
       }
       n++;
     }
-    textC(ctx, 'LEGENDS GLOW GOLD. ESC: BACK', W / 2, 208, '#48818b');
+    textC(ctx, kt('LEGENDS GLOW GOLD. ESC: BACK', 'LEGENDS GLOW GOLD. BACK: RETURN'), W / 2, 208, '#48818b');
   },
 };
 
@@ -309,6 +311,12 @@ RT.scenes.summary = {
     this.newHaul = this.total > R.haul && this.total > 0;
     this.newBuzz = T.maxBuzz > R.buzz && this.total > 0;
     endTrip(false);
+    // did this haul land (or defend) a leaderboard spot?
+    this.rank = 0;
+    if (this.total > 0) {
+      const i = G.save.board.findIndex(e => e.name === (G.save.name || 'ANON'));
+      if (i >= 0 && G.save.board[i].score === this.total) this.rank = i + 1;
+    }
     SFX.fanfare();
   },
   update(dt) {
@@ -338,9 +346,10 @@ RT.scenes.summary = {
     }
     text(ctx, 'TOTAL', 32, 182, '#fff', 2);
     text(ctx, money(this.total), 100, 182, '#8f8', 2);
+    if (this.rank) text(ctx, 'LEADERBOARD #' + this.rank + '!', 190, 170, this.rank === 1 ? '#ffd040' : '#9fd');
     if (this.newHaul) text(ctx, 'NEW HAUL RECORD!', 190, 180, '#ffd040');
     if (this.newBuzz) text(ctx, 'DRUNKEST TRIP YET!', 190, 190, '#fc8');
-    textC(ctx, 'ENTER: BACK TO THE DOCK', W / 2, 208, '#48818b');
+    textC(ctx, kt('ENTER: BACK TO THE DOCK', 'OK: BACK TO THE DOCK'), W / 2, 208, '#48818b');
   },
 };
 
@@ -397,7 +406,7 @@ RT.scenes.breath = {
     ctx.fillStyle = '#1f6a30'; ctx.fillRect(Math.round(cx - (this.gw || 16)), 92, Math.round((this.gw || 16) * 2), 14);
     ctx.fillStyle = '#fff';
     ctx.fillRect(Math.round(cx + this.nx) - 1, 88, 2, 22);
-    textC(ctx, 'SPACE: BLOW STEADY', cx, 116, '#ffd040');
+    textC(ctx, kt('SPACE: BLOW STEADY', 'CAST: BLOW STEADY'), cx, 116, '#ffd040');
     text(ctx, 'BUZZ ' + Math.round((T ? T.buzz : 0) * 10) + '%', cx - 26, 76, T && T.buzz > BUZZ_LIMIT ? '#f66' : '#8f8');
     if (this.done === 'pass') textCS(ctx, 'PASSED. "GET HOME SAFE."', cx, 150, '#8f8', 2);
     if (this.done === 'fail') textCS(ctx, 'FAILED. WAY OVER.', cx, 150, '#f44', 2);
@@ -425,6 +434,6 @@ RT.scenes.bust = {
     textC(ctx, 'COOLER CONFISCATED: ' + this.fish + ' FISH (' + money(this.lost) + ')', W / 2, 122, '#f88');
     textC(ctx, 'NO-ARREST STREAK RESET', W / 2, 134, '#f88');
     textC(ctx, "EARL POSTED YOUR MUGSHOT AT THE BAR.", W / 2, 152, '#9fd');
-    textC(ctx, 'ENTER: SLEEP IT OFF', W / 2, 190, '#48818b');
+    textC(ctx, kt('ENTER: SLEEP IT OFF', 'OK: SLEEP IT OFF'), W / 2, 190, '#48818b');
   },
 };
