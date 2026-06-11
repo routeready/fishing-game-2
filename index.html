@@ -12,28 +12,44 @@
   canvas{image-rendering:pixelated;image-rendering:crisp-edges;background:#000}
   #hint{margin-top:10px;font-size:12px;color:#48666b;text-align:center;letter-spacing:1px}
   /* touch controls (body.touch is set by js/touch.js on coarse-pointer devices) */
-  body.touch{padding-bottom:195px}
+  body.touch{padding-bottom:165px}
   @media (orientation:landscape){body.touch{padding-bottom:0}}
   body.touch #hint{display:none}
   #tc{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:space-between;align-items:flex-end;
-      padding:8px 10px calc(8px + env(safe-area-inset-bottom));pointer-events:none;z-index:10}
+      padding:8px 6px calc(8px + env(safe-area-inset-bottom));pointer-events:none;z-index:10}
   #tc>*{pointer-events:auto}
   .tbtn{display:flex;flex-direction:column;align-items:center;justify-content:center;background:#101820;border:1px solid #3a5a60;
         color:#cfe8e8;border-radius:8px;font-family:monospace;font-weight:bold;opacity:.88;line-height:1.15;
         touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
   .tbtn .thint{font-size:8px;font-weight:normal;color:#7fa0a6;letter-spacing:0;white-space:nowrap}
   .tbtn.on{background:#3a5a60;color:#fff}
-  #dpad{display:grid;grid-template-areas:". u ." "l . r" ". d .";grid-auto-columns:50px;grid-auto-rows:50px;gap:4px}
+  #dpad{display:grid;grid-template-areas:". u ." "l . r" ". d .";grid-auto-columns:42px;grid-auto-rows:42px;gap:4px}
   .d-u{grid-area:u}.d-l{grid-area:l}.d-r{grid-area:r}.d-d{grid-area:d}
-  #acts{display:grid;grid-template-columns:repeat(3,56px);grid-template-rows:42px 42px 56px;gap:6px;justify-items:stretch}
-  #acts .md{font-size:11px}
+  #acts{display:grid;grid-template-columns:repeat(3,47px);grid-template-rows:36px 36px 52px;gap:5px;justify-items:stretch}
+  #acts .md{font-size:10px}
   #acts .w2{grid-column:span 2}
-  #acts .sm{font-size:12px}
+  #acts .sm{font-size:11px}
+  #acts .thint{font-size:7px}
   #acts .big{grid-column:1/4;grid-row:3;font-size:16px;background:#16262c;border-color:#5a8a90;color:#ffd040}
   #acts .big.on{background:#5a8a90}
+  #tgas{width:62px;height:96px;font-size:15px;background:#16262c;border-color:#5a8a90;color:#8f8}
+  #tgas .thint{font-size:7px}
+  #tgas.on{background:#5a8a90;color:#fff}
+  /* landscape: controls overlay the canvas, so let the game show through */
+  @media (orientation:landscape){.tbtn{opacity:.5}.tbtn.on{opacity:.95}}
   #tmute{position:fixed;top:8px;right:8px;width:36px;height:36px;z-index:10}
-  #tyn{position:fixed;left:50%;transform:translateX(-50%);bottom:185px;display:none;gap:10px;z-index:11}
+  #tyn{position:fixed;left:50%;transform:translateX(-50%);bottom:160px;display:none;gap:10px;z-index:11}
   #tyn .tbtn{width:54px;height:44px;font-size:16px;background:#2a2410;border-color:#ffd040;color:#ffe080}
+  /* name gate (js/name.js) */
+  #namegate{position:fixed;inset:0;background:rgba(6,12,14,.93);display:flex;align-items:center;justify-content:center;z-index:30}
+  #namegate .nbox{background:#101820;border:1px solid #3a5a60;border-radius:10px;padding:22px 26px;
+                  display:flex;flex-direction:column;gap:14px;align-items:center}
+  #namegate .ntitle{color:#ffd040;font-size:15px;font-weight:bold;letter-spacing:2px}
+  #namegate input{background:#0a1316;border:1px solid #3a5a60;color:#cfe8e8;font-family:monospace;font-size:18px;
+                  padding:8px 10px;width:170px;text-align:center;text-transform:uppercase;border-radius:6px;outline:none}
+  #namegate input:focus{border-color:#5a8a90}
+  #namegate button{background:#16262c;border:1px solid #5a8a90;color:#ffd040;font-family:monospace;font-weight:bold;
+                   font-size:15px;padding:10px 28px;border-radius:8px}
 </style>
 </head>
 <body>
@@ -49,5 +65,6 @@
 <script src="js/scene_fish.js"></script>
 <script src="js/main.js"></script>
 <script src="js/touch.js"></script>
+<script src="js/name.js"></script>
 </body>
 </html>

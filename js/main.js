@@ -24,7 +24,7 @@ function fit() {
   // fractional scale so the game fills small phone screens.
   const touch = document.body && document.body.classList && document.body.classList.contains('touch');
   const portrait = window.innerHeight > window.innerWidth;
-  const reserve = touch ? (portrait ? 185 : 12) : 30;
+  const reserve = touch ? (portrait ? 165 : 12) : 30;
   let s = Math.min(window.innerWidth / W, (window.innerHeight - reserve) / H);
   s = s >= 2 ? Math.floor(s) : Math.max(0.75, s);
   cvs.style.width = (W * s) + 'px';
@@ -142,6 +142,16 @@ function endTrip(busted) {
     R.buzz = Math.max(R.buzz, T.maxBuzz);
     R.streak++;
     R.bestStreak = Math.max(R.bestStreak, R.streak);
+    if (total > 0) {
+      // leaderboard: best single-trip haul, one slot per name
+      const name = G.save.name || 'ANON';
+      const b = G.save.board;
+      const e = b.find(x => x.name === name);
+      if (e) e.score = Math.max(e.score, total);
+      else b.push({ name, score: total });
+      b.sort((a, z) => z.score - a.score);
+      G.save.board = b.slice(0, 8);
+    }
   }
   persist();
 }
