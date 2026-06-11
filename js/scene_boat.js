@@ -64,6 +64,7 @@ RT.scenes.boat = {
     }
     this.pull = 0;   // 'PULL OVER' cutscene timer
     this.hintT = 0;
+    this.foam = []; // wake particles
   },
   update(dt) {
     const T = G.trip, Wd = T.world, B = Wd.boat, L = LAKES[T.lake];
@@ -98,12 +99,23 @@ RT.scenes.boat = {
     B.x += Math.cos(B.ang) * B.v * dt;
     B.y += Math.sin(B.ang) * B.v * dt;
     if (B.v > 30 && Math.floor(G.t * 9) % 3 === 0) SFX.motor();
+    // wake foam
+    if (B.v > 25 && Math.random() < B.v / 90) {
+      this.foam.push({
+        x: B.x - Math.cos(B.ang) * 9 + (Math.random() - 0.5) * 4,
+        y: B.y - Math.sin(B.ang) * 9 + (Math.random() - 0.5) * 4,
+        t: 0,
+      });
+      if (this.foam.length > 70) this.foam.shift();
+    }
+    for (const fp of this.foam) fp.t += dt;
+    this.foam = this.foam.filter(fp => fp.t < 0.9);
 
     // shore bounds
     const m = 16;
     if (B.x < m || B.x > Wd.w - m || B.y < m || B.y > Wd.h - m) {
       B.x = clamp(B.x, m, Wd.w - m); B.y = clamp(B.y, m, Wd.h - m);
-      if (B.v > 40) { SFX.bonk(); B.stun = 0.3; }
+      if (B.v > 40) { SFX.bonk(); RT.addShake(2, 0.2); B.stun = 0.3; }
       B.v *= 0.3;
     }
     // rocks
@@ -115,7 +127,7 @@ RT.scenes.boat = {
         // push out past the rim — landing exactly on it re-collides on float
         // fuzz every frame, refreshing the stun forever and locking the boat
         B.x = rk.x + px * (rr + 1); B.y = rk.y + py * (rr + 1);
-        if (B.v > 25) { SFX.bonk(); toast('HULL SCRAPE!', '#f88'); B.stun = 0.4; }
+        if (B.v > 25) { SFX.bonk(); RT.addShake(2, 0.2); toast('HULL SCRAPE!', '#f88'); B.stun = 0.4; }
         B.v *= 0.25;
       }
     }
@@ -193,6 +205,22 @@ RT.scenes.boat = {
       const off = Math.sin(G.t * 1.1 + (y + camY) * 0.13) * 9;
       ctx.fillRect(0, y, W, 1);
       ctx.fillRect(Math.round(60 + off + ((y + camY) * 17) % 220 - camX % 40), y + 6, 16, 1);
+    }
+    // sun glints (only when the sun's out)
+    if (!fog && G.daily.weather.id !== 'OVERCAST') {
+      ctx.fillStyle = 'rgba(255,255,230,0.65)';
+      const gs = Math.floor(G.t * 3);
+      for (let i = 0; i < 8; i++) {
+        const gx = (i * 397 + gs * 173) % Wd.w - camX;
+        const gy = (i * 593 + gs * 257) % Wd.h - camY;
+        if (gx >= 0 && gx < W && gy >= 0 && gy < H) ctx.fillRect(gx, gy, 2, 1);
+      }
+    }
+    // wake foam
+    for (const fp of this.foam) {
+      const k = 1 - fp.t / 0.9;
+      ctx.fillStyle = 'rgba(255,255,255,' + (0.55 * k).toFixed(2) + ')';
+      ctx.fillRect(Math.round(fp.x - camX), Math.round(fp.y - camY), k > 0.5 ? 2 : 1, 1);
     }
     // shore ring
     ctx.fillStyle = '#caa86a';
@@ -278,6 +306,17 @@ RT.scenes.boat = {
       ctx.restore();
       if (T.drinking > 0) textCS(ctx, 'GLUG', sx + 10, sy - 12, '#ffd040');
     }
+    // weather: overcast dims, breezy drags cloud shadows over the water
+    if (G.daily.weather.id === 'OVERCAST') { ctx.fillStyle = 'rgba(70,82,96,0.16)'; ctx.fillRect(0, 0, W, H); }
+    if (G.daily.weather.id === 'BREEZY') {
+      ctx.fillStyle = 'rgba(8,28,38,0.13)';
+      const spd2 = 14 + G.daily.windSpd * 5;
+      for (let i = 0; i < 3; i++) {
+        const cx2 = ((i * 430 + G.t * spd2 * Math.cos(G.daily.windDir)) % (Wd.w + 260) + Wd.w + 260) % (Wd.w + 260) - 130 - camX;
+        const cy2 = ((i * 530 + 170 + G.t * spd2 * Math.sin(G.daily.windDir)) % (Wd.h + 200) + Wd.h + 200) % (Wd.h + 200) - 100 - camY;
+        ctx.beginPath(); ctx.ellipse(cx2, cy2, 95, 42, 0, 0, Math.PI * 2); ctx.fill();
+      }
+    }
     // fog overlay
     if (fog) {
       ctx.fillStyle = 'rgba(210,220,220,0.22)';
@@ -288,9 +327,8 @@ RT.scenes.boat = {
       ctx.fillStyle = 'rgba(210,220,220,0.18)';
       ctx.fillRect(0, 0, W, H);
     }
-    // dusk tint
-    const dk = duskK();
-    if (dk > 0) { ctx.fillStyle = 'rgba(60,20,60,' + (dk * 0.35).toFixed(3) + ')'; ctx.fillRect(0, 0, W, H); }
+    // time-of-day wash
+    RT.duskDraw();
 
     // pull-over flash
     if (this.pull > 0) {

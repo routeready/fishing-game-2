@@ -20,16 +20,48 @@ RT.scenes.title = {
     if (pressed('ok') || pressed('act')) { SFX.fanfare(); setScene('dock'); }
   },
   draw() {
-    ctx.fillStyle = '#10303a'; ctx.fillRect(0, 0, W, 70);
-    // sunset sun
+    // sunset gradient sky
+    const sky = ['#0c2230', '#173648', '#34465a', '#6a4438'];
+    const skyH = [20, 18, 16, 16];
+    let sy0 = 0;
+    for (let i = 0; i < 4; i++) { ctx.fillStyle = sky[i]; ctx.fillRect(0, sy0, W, skyH[i]); sy0 += skyH[i]; }
+    // sun with glow
+    ctx.fillStyle = 'rgba(240,160,48,0.3)'; ctx.fillRect(246, 34, 30, 30);
     ctx.fillStyle = '#f0a030'; ctx.fillRect(250, 38, 22, 22);
     ctx.fillStyle = '#ffd040'; ctx.fillRect(254, 42, 14, 14);
     waterStripes(70, H, '#1a5a66', '#2e8a96', 1.2);
-    // boat silhouette
+    // sun reflection shimmer
+    for (let y = 74; y < 150; y += 6) {
+      const a = 0.4 * (1 - (y - 74) / 80);
+      ctx.fillStyle = 'rgba(240,170,60,' + a.toFixed(2) + ')';
+      const off = Math.sin(G.t * 1.6 + y * 0.4) * 5;
+      ctx.fillRect(Math.round(252 + off), y, 16 - Math.round((y - 74) / 8), 1);
+    }
+    // birds drifting home
+    ctx.fillStyle = '#0a1a20';
+    for (let i = 0; i < 3; i++) {
+      const bx2 = ((G.t * 13 + i * 130) % (W + 60)) - 30;
+      const by2 = 16 + i * 9 + Math.sin(G.t * 2 + i * 2) * 2;
+      const fl = Math.floor(G.t * 5 + i) % 2;
+      ctx.fillRect(Math.round(bx2 - 3), Math.round(by2 + (fl ? 0 : -1)), 3, 1);
+      ctx.fillRect(Math.round(bx2 + 1), Math.round(by2 + (fl ? 0 : -1)), 3, 1);
+      ctx.fillRect(Math.round(bx2), Math.round(by2), 1, 1);
+    }
+    // boat silhouette with you and Earl aboard
     const bx = 60 + Math.sin(G.t * 0.6) * 4, by = 96 + Math.sin(G.t * 1.4) * 1.5;
     ctx.fillStyle = '#0a1a20';
-    ctx.fillRect(bx, by, 34, 6); ctx.fillRect(bx + 4, by - 8, 4, 8);
-    ctx.fillRect(bx + 14, by - 6, 3, 6); ctx.fillRect(bx + 8, by - 10, 14, 1); // rod
+    ctx.fillRect(bx, by, 34, 6);
+    ctx.fillRect(bx + 4, by - 8, 4, 8);   // you
+    ctx.fillRect(bx + 14, by - 6, 3, 6);  // earl
+    // your rod sweeps as you cast off the bow
+    const ra = Math.sin(G.t * 0.9) * 0.5;
+    ctx.strokeStyle = '#0a1a20'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(bx + 7, by - 7);
+    ctx.lineTo(bx + 7 + Math.cos(-0.9 + ra) * 15, by - 7 + Math.sin(-0.9 + ra) * 15);
+    ctx.stroke();
+    // earl's can glints
+    if (Math.floor(G.t * 2.5) % 3 === 0) { ctx.fillStyle = '#ffd040'; ctx.fillRect(bx + 18, by - 7, 2, 2); }
     // logo
     textCS(ctx, 'REEL', W / 2, 112, '#ffd040', 5, '#402000');
     textCS(ctx, 'TROUBLE', W / 2, 142, '#f06040', 5, '#401010');
@@ -337,7 +369,9 @@ RT.scenes.summary = {
       const shown = T.cooler.slice(0, 9);
       for (let i = 0; i < shown.length; i++) {
         const f = shown[i], y = 52 + i * 12;
-        text(ctx, f.name, 32, y, '#cfe8e8');
+        const sp = FISH[f.id];
+        drawFish(ctx, 41, y + 3, clamp(11 + f.w * 0.7, 11, 19), sp ? sp.col : '#9fd');
+        text(ctx, f.name, 56, y, '#cfe8e8');
         text(ctx, fmtLb(f.w) + 'LB', 170, y, '#9fd');
         text(ctx, money(f.val), 212, y, '#8f8');
         if (f.buzz > BUZZ_LIMIT) text(ctx, 'X' + (Math.round(buzzMult(f.buzz) * 10) / 10), 256, y, '#fc8');

@@ -86,6 +86,7 @@ RT.scenes.fish = {
     this.fishX = this.lure.x;
     this.mode = 'fight';
     SFX.hook();
+    RT.addShake(2.5, 0.25);
     if (f.legend) { this.say('SOMETHING HUGE!!', 2, '#ffd040'); SFX.horn(); }
   },
 
@@ -109,6 +110,7 @@ RT.scenes.fish = {
     this.card = { f, w, val, bm, fod, kept, newBig };
     this.mode = 'card';
     this.fish = null;
+    if (f.legend) RT.addFlash('#ffd040', 0.3);
     if (f.legend || newBig) SFX.fanfare(); else SFX.land();
     if (f.legend) earlSay('EARL: ' + f.name + '!! I HEARD IT WAS A MYTH!!', 5);
     else if (!kept) earlSay("EARL: COOLER'S FULL, BUD. BACK SHE GOES.", 4);
@@ -259,7 +261,7 @@ RT.scenes.fish = {
         if (!hunkered) this.biteIn -= dt;
         if (this.biteIn <= 0) {
           this.biteWin = RT.touch ? 0.7 : 0.55; // touchscreens get a hair more strike time
-          SFX.bite();
+          SFX.bite(); RT.addFlash('#ffffff', 0.1);
           this.ripples.push({ x: this.lure.x, y: this.lure.y, t: 0 });
         } else if (pressed('act')) {
           this.say('TOO SOON - SPOOKED EM', 1.4, '#f88');
@@ -279,6 +281,7 @@ RT.scenes.fish = {
         if (this.runIn <= 0) {
           this.run = true;
           this.runDur = rnd(0.7, 1.4) + f.fight * 0.9;
+          this.runMax = this.runDur;
           this.runIn = rnd(1.5, 3.2) * (1.1 - f.fight * 0.5);
           SFX.splash();
         }
@@ -307,7 +310,10 @@ RT.scenes.fish = {
       // line snap
       if (this.tension > 95) {
         this.snapAcc += dt;
-        if (this.snapAcc > rod.snapT) { SFX.snap(); this.loseFish('LINE SNAPPED!'); return; }
+        if (this.snapAcc > rod.snapT) {
+          SFX.snap(); RT.addShake(3, 0.35); RT.addFlash('#f04040', 0.18);
+          this.loseFish('LINE SNAPPED!'); return;
+        }
       } else this.snapAcc = Math.max(0, this.snapAcc - dt * 2);
       // slack
       if (this.tension < 4 && this.run) {
@@ -440,14 +446,19 @@ RT.scenes.fish = {
       ctx.beginPath(); ctx.moveTo(rodTip.x, rodTip.y);
       ctx.quadraticCurveTo((rodTip.x + fx) / 2, (rodTip.y + fy) / 2 + 12, fx, fy);
       ctx.stroke();
-      ctx.fillStyle = this.fish.f.col;
-      ctx.fillRect(Math.round(fx) - 4, Math.round(fy) - 2, 8, 3);
+      // the fish leaps clear of the water during a run
+      const runK = this.run && this.runMax ? 1 - this.runDur / this.runMax : 0;
+      const jump = this.run ? Math.sin(runK * Math.PI) * 13 : 0;
+      const fl = clamp(10 + this.fish.w * 0.9, 10, 26);
+      drawFish(ctx, fx, fy - jump, fl, this.fish.f.col);
       if (this.run) {
-        ctx.fillStyle = 'rgba(255,255,255,0.8)';
-        for (let i = 0; i < 4; i++) {
-          ctx.fillRect(Math.round(fx + Math.sin(G.t * 20 + i * 2) * 8), Math.round(fy - 3 + (i % 2) * 5), 2, 2);
+        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        for (let i = 0; i < 6; i++) {
+          const sx2 = fx + Math.sin(G.t * 17 + i * 2.1) * (6 + jump * 0.5);
+          const sy2 = fy + 1 - jump * (0.2 + (i % 3) * 0.3);
+          ctx.fillRect(Math.round(sx2), Math.round(sy2), 1 + (i % 2), 1);
         }
-        if (Math.floor(G.t * 6) % 2 === 0) textCS(ctx, 'RUN! EASE OFF!', fx, fy - 14, '#f66');
+        if (Math.floor(G.t * 6) % 2 === 0) textCS(ctx, 'RUN! EASE OFF!', fx, fy - jump - 16, '#f66');
       }
     }
 
@@ -534,23 +545,34 @@ RT.scenes.fish = {
     // catch card
     if (this.mode === 'card' && this.card) {
       const c = this.card;
-      panel(ctx, 50, 60, 220, 86);
-      textC(ctx, c.f.legend ? '** LEGENDARY **' : 'FISH ON BOARD!', W / 2, 66, c.f.legend ? '#ffd040' : '#8f8');
-      textC(ctx, c.f.name, W / 2, 78, '#fff', 2);
-      textC(ctx, fmtLb(c.w) + ' LB', W / 2, 94, '#9fd');
+      panel(ctx, 40, 50, 240, 110);
+      textC(ctx, c.f.legend ? '** LEGENDARY **' : 'FISH ON BOARD!', W / 2, 56, c.f.legend ? '#ffd040' : '#8f8');
+      if (c.f.legend) starburst(ctx, W / 2, 82, G.t);
+      drawFish(ctx, W / 2, 82, 28 + 38 * clamp(c.w / c.f.wMax, 0, 1), c.f.col);
+      textC(ctx, c.f.name, W / 2, 100, '#fff', 2);
+      textC(ctx, fmtLb(c.w) + ' LB', W / 2, 116, '#9fd');
       let line = money(c.val);
       if (c.bm > 1.05) line += '  (BUZZ X' + (Math.round(c.bm * 10) / 10) + ')';
       if (c.fod) line += '  FISH OF THE DAY X2!';
-      textC(ctx, line, W / 2, 106, '#8f8');
-      if (!c.kept) textC(ctx, 'COOLER FULL - RELEASED, NO CASH', W / 2, 118, '#f88');
-      if (c.newBig) textC(ctx, 'NEW PERSONAL BEST!', W / 2, 128, '#ffd040');
-      textC(ctx, kt('ENTER: KEEP FISHING', 'OK: KEEP FISHING'), W / 2, 138, '#48818b');
+      textC(ctx, line, W / 2, 126, '#8f8');
+      if (!c.kept) textC(ctx, 'COOLER FULL - RELEASED, NO CASH', W / 2, 136, '#f88');
+      if (c.newBig) textC(ctx, 'NEW PERSONAL BEST!', W / 2, 144, '#ffd040');
+      textC(ctx, kt('ENTER: KEEP FISHING', 'OK: KEEP FISHING'), W / 2, 152, '#48818b');
     }
 
     if (this.msg) textCS(ctx, this.msg, W / 2, 80, this.msgCol, 2);
 
-    // dusk + fog
-    if (dk > 0) { ctx.fillStyle = 'rgba(60,20,60,' + (dk * 0.32).toFixed(3) + ')'; ctx.fillRect(0, 0, W, H); }
+    // weather + time of day washes
+    if (G.daily.weather.id === 'OVERCAST') { ctx.fillStyle = 'rgba(70,82,96,0.16)'; ctx.fillRect(0, 0, W, H); }
+    if (G.daily.weather.id === 'BREEZY') {
+      ctx.fillStyle = 'rgba(8,28,38,0.13)';
+      const wdir = Math.cos(G.daily.windDir) >= 0 ? 1 : -1;
+      for (let i = 0; i < 3; i++) {
+        const cx2 = ((i * 160 + G.t * (10 + G.daily.windSpd * 4) * wdir) % (W + 220) + W + 220) % (W + 220) - 110;
+        ctx.beginPath(); ctx.ellipse(cx2, 60 + i * 46, 78, 26, 0, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    RT.duskDraw();
     if (G.daily.weather.id === 'FOG') { ctx.fillStyle = 'rgba(210,220,220,0.15)'; ctx.fillRect(0, 0, W, H); }
 
     earlDraw();
@@ -567,17 +589,26 @@ RT.scenes.fish = {
     ctx.fillStyle = '#8a2430'; ctx.fillRect(x - 9, y + 6, 18, 17); // shirt
     ctx.fillStyle = '#3a5a30'; ctx.fillRect(x - 7, y + 8, 14, 13); // vest
     ctx.fillStyle = '#ffd040'; ctx.fillRect(x - 3, y + 13, 6, 3);  // patch
-    // head + cap
-    ctx.fillStyle = '#d8a878'; ctx.fillRect(x - 4, y - 2, 8, 8);
-    ctx.fillStyle = '#304a8a'; ctx.fillRect(x - 5, y - 4, 10, 4);
-    // rod arm + rod (bends in a fight)
+    // head + cap (tips back mid-sip)
+    const tip = T.drinking > 0 ? 1 : 0;
+    ctx.fillStyle = '#d8a878'; ctx.fillRect(x - 4, y - 2 - tip, 8, 8);
+    ctx.fillStyle = '#304a8a'; ctx.fillRect(x - 5 - tip, y - 4 - tip, 10, 4);
+    // rod arm + rod: cocked back on power, swung forward on the cast,
+    // bent double in a fight
     ctx.fillStyle = '#8a2430'; ctx.fillRect(x + 8, y + 6, 4, 8);
     ctx.strokeStyle = '#d8c8a8'; ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(x + 11, y + 8);
     if (this.mode === 'fight') ctx.quadraticCurveTo(x + 20, y - 24, x + 14, y - 32);
+    else if (this.mode === 'power') ctx.quadraticCurveTo(x + 27, y - 6, x + 32, y - 20);
+    else if (this.mode === 'fly') ctx.quadraticCurveTo(x + 12, y - 26, x + 2, y - 28);
     else ctx.quadraticCurveTo(x + 22, y - 18, x + 18, y - 30);
     ctx.stroke();
+    if (this.mode === 'fight' && held('act')) {
+      const ca = G.t * 14;
+      ctx.fillStyle = '#d8c8a8';
+      ctx.fillRect(Math.round(x + 10 + Math.cos(ca) * 2), Math.round(y + 11 + Math.sin(ca) * 2), 2, 2);
+    }
     // beer arm
     if (T.drinking > 0) {
       ctx.fillStyle = '#8a2430'; ctx.fillRect(x - 13, y, 4, 8);

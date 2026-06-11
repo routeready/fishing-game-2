@@ -307,6 +307,28 @@ function duskK() {
 }
 RT.duskK = duskK;
 
+// Time-of-day wash over a whole scene: golden hour, then purple to sundown.
+function duskDraw() {
+  const T = G.trip;
+  if (!T) return;
+  const t = T.timeMin;
+  const g = clamp((t - 17.5 * 60) / 60, 0, 1) * clamp((19.8 * 60 - t) / 40, 0, 1);
+  if (g > 0) { ctx.fillStyle = 'rgba(240,150,40,' + (g * 0.13).toFixed(3) + ')'; ctx.fillRect(0, 0, W, H); }
+  const dk = duskK();
+  if (dk > 0) { ctx.fillStyle = 'rgba(50,16,60,' + (dk * 0.35).toFixed(3) + ')'; ctx.fillRect(0, 0, W, H); }
+}
+RT.duskDraw = duskDraw;
+
+// ---------- screen shake & flash ----------
+const FX = { shT: 0, shDur: 1, shAmt: 0, flT: 0, flDur: 1, flCol: '#fff' };
+function addShake(amt, dur) {
+  FX.shAmt = Math.max(FX.shAmt, amt);
+  FX.shT = Math.max(FX.shT, dur);
+  FX.shDur = Math.max(FX.shT, 0.01);
+}
+function addFlash(col, dur) { FX.flCol = col; FX.flT = dur; FX.flDur = dur; }
+RT.addShake = addShake; RT.addFlash = addFlash;
+
 // ---------- main loop ----------
 let last = 0, acc = 0;
 const STEP = 1 / 60;
@@ -321,9 +343,22 @@ function frame(ts) {
     G.t += STEP;
     G.scene.update(STEP);
     Keys.pressed = {};
+    if (FX.shT > 0) FX.shT -= STEP;
+    if (FX.flT > 0) FX.flT -= STEP;
     acc -= STEP;
   }
+  const shk = FX.shT > 0 ? FX.shAmt * (FX.shT / FX.shDur) : 0;
+  if (shk <= 0) FX.shAmt = 0;
+  ctx.save();
+  if (shk > 0) ctx.translate(Math.round((Math.random() - 0.5) * 2 * shk), Math.round((Math.random() - 0.5) * 2 * shk));
   G.scene.draw();
+  ctx.restore();
+  if (FX.flT > 0) {
+    ctx.globalAlpha = 0.45 * (FX.flT / FX.flDur);
+    ctx.fillStyle = FX.flCol;
+    ctx.fillRect(0, 0, W, H);
+    ctx.globalAlpha = 1;
+  }
   toastDraw();
   requestAnimationFrame(frame);
 }
