@@ -19,7 +19,14 @@ RT.G = G;
 
 // ---------- canvas scaling ----------
 function fit() {
-  const s = Math.max(1, Math.floor(Math.min(window.innerWidth / W, (window.innerHeight - 30) / H)));
+  // On touch devices reserve room for the on-screen controls (portrait puts
+  // them below the canvas; landscape overlays the corners) and allow
+  // fractional scale so the game fills small phone screens.
+  const touch = document.body && document.body.classList && document.body.classList.contains('touch');
+  const portrait = window.innerHeight > window.innerWidth;
+  const reserve = touch ? (portrait ? 185 : 12) : 30;
+  let s = Math.min(window.innerWidth / W, (window.innerHeight - reserve) / H);
+  s = s >= 2 ? Math.floor(s) : Math.max(0.75, s);
   cvs.style.width = (W * s) + 'px';
   cvs.style.height = (H * s) + 'px';
 }

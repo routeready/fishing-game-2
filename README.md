@@ -12,6 +12,9 @@ Open `index.html` in a browser. That's it. (Or serve the folder:
 
 ## Controls
 
+On phones and tablets an on-screen d-pad and buttons appear automatically
+(CAST is the big button; Y/N pop up when Earl offers you a freebie).
+
 | Key | Action |
 | --- | --- |
 | Arrows / WASD | Steer the boat, move the casting reticle |
