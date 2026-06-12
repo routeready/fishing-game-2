@@ -6,25 +6,42 @@ function genLake(li) {
   const r = mulberry32(G.daily.seed * 7919 + li * 101 + 13);
   const world = { w: L.w, h: L.h, spots: [], rocks: [], buoys: [], patrols: [] };
   // The island anchors every lake; Graham's dock is on its south shore.
-  const irx = Math.min(L.w * 0.14, 215);
-  world.island = { x: L.w / 2, y: L.h / 2, rx: irx, ry: irx * 0.42, seed: Math.floor(r() * 1e9) };
-  world.dock = { x: L.w / 2, y: L.h / 2 + world.island.ry + 26 };
+  // Lakes with a traced shoreline (poly) place it per the satellite photo.
+  const islF = L.isl || { x: 0.5, y: 0.5, k: 1 };
+  const irx = Math.min(L.w * 0.14, 215) * (islF.k || 1);
+  world.island = { x: L.w * islF.x, y: L.h * islF.y, rx: irx, ry: irx * 0.42, seed: Math.floor(r() * 1e9) };
+  world.dock = { x: world.island.x, y: world.island.y + world.island.ry + 26 };
+  world.poly = L.poly ? L.poly.map(v => [v[0] * L.w, v[1] * L.h]) : null;
+  world.islets = world.poly ? [
+    { x: L.w * 0.63, y: L.h * 0.40, r: 26, seed: Math.floor(r() * 1e9) },
+    { x: L.w * 0.72, y: L.h * 0.46, r: 18, seed: Math.floor(r() * 1e9) },
+    { x: L.w * 0.55, y: L.h * 0.52, r: 14, seed: Math.floor(r() * 1e9) },
+  ] : [];
   function islE(x, y, pad) {
     const I = world.island;
     const dx = (x - I.x) / (I.rx + pad), dy = (y - I.y) / (I.ry + pad);
     return dx * dx + dy * dy;
   }
+  function inLake(x, y, m2) {
+    if (!world.poly) return true;
+    return pointInPoly(x, y, world.poly) &&
+      pointInPoly(x - m2, y, world.poly) && pointInPoly(x + m2, y, world.poly) &&
+      pointInPoly(x, y - m2, world.poly) && pointInPoly(x, y + m2, world.poly);
+  }
 
   const placed = [];
   function place(margin, minGap) {
-    for (let tries = 0; tries < 60; tries++) {
+    for (let tries = 0; tries < 140; tries++) {
       const x = margin + r() * (L.w - margin * 2);
       const y = margin + r() * (L.h - margin * 2 - 80);
-      let ok = dist(x, y, world.dock.x, world.dock.y) > 120 && islE(x, y, Math.max(55, world.island.rx * 0.55)) > 1;
+      let ok = dist(x, y, world.dock.x, world.dock.y) > 120 &&
+        islE(x, y, Math.max(55, world.island.rx * 0.55)) > 1 &&
+        inLake(x, y, 26) &&
+        world.islets.every(s => dist(x, y, s.x, s.y) > s.r + 40);
       for (const p of placed) if (dist(x, y, p.x, p.y) < minGap) { ok = false; break; }
       if (ok) { placed.push({ x, y }); return { x, y }; }
     }
-    return { x: margin + r() * (L.w - margin * 2), y: margin + r() * (L.h - margin * 2) };
+    return { x: world.dock.x + 160, y: world.dock.y + 60 };
   }
 
   const hotIdx = G.daily.hot % L.spotN;
@@ -46,16 +63,34 @@ function genLake(li) {
     const p = place(60, 80);
     world.buoys.push({ x: p.x, y: p.y });
   }
+  let wpLoop = null;
+  if (world.poly) {
+    let cx = 0, cy = 0;
+    for (const v of world.poly) { cx += v[0]; cy += v[1]; }
+    cx /= world.poly.length; cy /= world.poly.length;
+    wpLoop = [];
+    for (let vi = 0; vi < world.poly.length; vi += 2) {
+      wpLoop.push({ x: cx + (world.poly[vi][0] - cx) * 0.55, y: cy + (world.poly[vi][1] - cy) * 0.55 });
+    }
+  }
   for (let i = 0; i < L.patrol; i++) {
-    const inset = 110 + i * 60;
-    const wp = [
-      { x: inset, y: inset }, { x: L.w - inset, y: inset },
-      { x: L.w - inset, y: L.h - inset - 60 }, { x: inset, y: L.h - inset - 60 },
-    ];
-    world.patrols.push({
-      x: wp[i % 4].x, y: wp[i % 4].y, wi: (i % 4 + 1) % 4, wp,
-      seen: false, wasClose: false, chirpT: 0,
-    });
+    if (wpLoop) {
+      const st = (i * Math.floor(wpLoop.length / 2)) % wpLoop.length;
+      world.patrols.push({
+        x: wpLoop[st].x, y: wpLoop[st].y, wi: (st + 1) % wpLoop.length, wp: wpLoop,
+        seen: false, wasClose: false, chirpT: 0,
+      });
+    } else {
+      const inset = 110 + i * 60;
+      const wp = [
+        { x: inset, y: inset }, { x: L.w - inset, y: inset },
+        { x: L.w - inset, y: L.h - inset - 60 }, { x: inset, y: L.h - inset - 60 },
+      ];
+      world.patrols.push({
+        x: wp[i % 4].x, y: wp[i % 4].y, wi: (i % 4 + 1) % 4, wp,
+        seen: false, wasClose: false, chirpT: 0,
+      });
+    }
   }
   // floating goodies to ram with the boat
   world.pickups = [];
@@ -69,7 +104,7 @@ function genLake(li) {
   world.addPickup = addPickup;
   const nPick = 4 + Math.floor(r() * 3);
   for (let i = 0; i < nPick; i++) addPickup();
-  world.boat = { x: world.dock.x, y: world.dock.y + 22, ang: Math.PI / 2, v: 0, stun: 0 };
+  world.boat = { x: world.dock.x, y: world.dock.y + 22, ang: Math.PI / 2, v: 0, stun: 0, lx: world.dock.x, ly: world.dock.y + 22 };
   return world;
 }
 
@@ -137,12 +172,20 @@ RT.scenes.boat = {
     for (const fp of this.foam) fp.t += dt;
     this.foam = this.foam.filter(fp => fp.t < 0.9);
 
-    // shore bounds
-    const m = 16;
-    if (B.x < m || B.x > Wd.w - m || B.y < m || B.y > Wd.h - m) {
-      B.x = clamp(B.x, m, Wd.w - m); B.y = clamp(B.y, m, Wd.h - m);
-      if (B.v > 40) { SFX.bonk(); RT.addShake(2, 0.2); B.stun = 0.3; }
-      B.v *= 0.3;
+    // shore bounds: traced shoreline when the lake has one, else the rect rim
+    if (Wd.poly) {
+      if (!pointInPoly(B.x, B.y, Wd.poly)) {
+        B.x = B.lx; B.y = B.ly;
+        if (B.v > 40) { SFX.bonk(); RT.addShake(2, 0.2); B.stun = 0.3; }
+        B.v *= 0.3;
+      }
+    } else {
+      const m = 16;
+      if (B.x < m || B.x > Wd.w - m || B.y < m || B.y > Wd.h - m) {
+        B.x = clamp(B.x, m, Wd.w - m); B.y = clamp(B.y, m, Wd.h - m);
+        if (B.v > 40) { SFX.bonk(); RT.addShake(2, 0.2); B.stun = 0.3; }
+        B.v *= 0.3;
+      }
     }
     // rocks
     for (const rk of Wd.rocks) {
@@ -157,25 +200,30 @@ RT.scenes.boat = {
         B.v *= 0.25;
       }
     }
-    // the island and its east sand spit — run aground
-    {
+    // the island (traced outline) and the basin islets — run aground
+    const onIsland = (x, y) => {
       const I = Wd.island;
-      const zones = [
-        [I.x, I.y, I.rx + 7, I.ry + 7],
-        [I.x + I.rx * 1.18, I.y - I.ry * 0.05, I.rx * 0.32 + 6, I.ry * 0.18 + 6],
-      ];
-      for (const zn of zones) {
-        const ex = (B.x - zn[0]) / zn[2], ey = (B.y - zn[1]) / zn[3];
-        const e = Math.sqrt(ex * ex + ey * ey);
-        if (e < 1) {
-          const f = 1.02 / (e || 0.001);
-          B.x = zn[0] + (B.x - zn[0]) * f;
-          B.y = zn[1] + (B.y - zn[1]) * f;
-          if (B.v > 25) { SFX.bonk(); RT.addShake(2, 0.2); toast('RAN AGROUND!', '#f88'); B.stun = 0.4; }
-          B.v *= 0.25;
-        }
+      const u = ((x - I.x) / (I.rx * 1.05) + 1) / 2;
+      const v2 = ((y - I.y) / (I.ry * 1.05) + 1) / 2;
+      return u >= 0 && u <= 1 && v2 >= 0 && v2 <= 1 && pointInPoly(u, v2, ISLAND_PTS);
+    };
+    if (onIsland(B.x, B.y)) {
+      B.x = B.lx; B.y = B.ly;
+      if (B.v > 25) { SFX.bonk(); RT.addShake(2, 0.2); toast('RAN AGROUND!', '#f88'); B.stun = 0.4; }
+      B.v *= 0.25;
+    }
+    for (const sI of Wd.islets) {
+      const d = dist(B.x, B.y, sI.x, sI.y);
+      const rr2 = sI.r + 6;
+      if (d < rr2) {
+        const px = (B.x - sI.x) / (d || 1), py = (B.y - sI.y) / (d || 1);
+        B.x = sI.x + px * (rr2 + 1); B.y = sI.y + py * (rr2 + 1);
+        if (B.v > 25) { SFX.bonk(); RT.addShake(2, 0.2); toast('RAN AGROUND!', '#f88'); B.stun = 0.4; }
+        B.v *= 0.25;
       }
     }
+    // remember the last legal spot so shore reverts always land on water
+    if (!onIsland(B.x, B.y) && (!Wd.poly || pointInPoly(B.x, B.y, Wd.poly))) { B.lx = B.x; B.ly = B.y; }
 
     // --- pickups ---
     if (T.scanT > 0) T.scanT -= dt;
@@ -282,13 +330,42 @@ RT.scenes.boat = {
     ctx.save();
     ctx.scale(Z, Z);
 
-    // water
-    ctx.fillStyle = '#1f7a86'; ctx.fillRect(0, 0, SW, SH);
-    ctx.fillStyle = '#2e96a2';
-    for (let y = -((camY | 0) % 12); y < SH; y += 12) {
-      const off = Math.sin(G.t * 1.1 + (y + camY) * 0.13) * 9;
-      ctx.fillRect(0, y, SW, 1);
-      ctx.fillRect(Math.round(60 + off + ((y + camY) * 17) % 220 - camX % 40), y + 6, 16, 1);
+    // water (and, for traced lakes, the land around it)
+    const polyPath = () => {
+      ctx.beginPath();
+      Wd.poly.forEach((v, i) => { i ? ctx.lineTo(v[0] - camX, v[1] - camY) : ctx.moveTo(v[0] - camX, v[1] - camY); });
+      ctx.closePath();
+    };
+    const drawWaves = () => {
+      ctx.fillStyle = '#1f7a86'; ctx.fillRect(0, 0, SW, SH);
+      ctx.fillStyle = '#2e96a2';
+      for (let y = -((camY | 0) % 12); y < SH; y += 12) {
+        const off = Math.sin(G.t * 1.1 + (y + camY) * 0.13) * 9;
+        ctx.fillRect(0, y, SW, 1);
+        ctx.fillRect(Math.round(60 + off + ((y + camY) * 17) % 220 - camX % 40), y + 6, 16, 1);
+      }
+    };
+    if (Wd.poly) {
+      // shoreland: forest green with deterministic conifer stipple
+      ctx.fillStyle = '#2f5a28'; ctx.fillRect(0, 0, SW, SH);
+      ctx.fillStyle = '#24481f';
+      for (let gy = Math.floor(camY / 14); gy <= Math.floor((camY + SH) / 14); gy++) {
+        for (let gx = Math.floor(camX / 14); gx <= Math.floor((camX + SW) / 14); gx++) {
+          const h2 = (gx * 73856093 ^ gy * 19349663) >>> 0;
+          const px = gx * 14 + (h2 % 9), py = gy * 14 + ((h2 >> 4) % 9);
+          if (!pointInPoly(px, py, Wd.poly)) ctx.fillRect(px - camX, py - camY, 2, 2);
+        }
+      }
+      // sand shoreline traced from the satellite photo
+      polyPath();
+      ctx.strokeStyle = '#caa86a'; ctx.lineWidth = 9; ctx.lineJoin = 'round'; ctx.stroke();
+      ctx.lineWidth = 1;
+      ctx.save();
+      polyPath(); ctx.clip();
+      drawWaves();
+      ctx.restore();
+    } else {
+      drawWaves();
     }
     // sun glints (only when the sun's out)
     if (!fog && G.daily.weather.id !== 'OVERCAST') {
@@ -306,52 +383,81 @@ RT.scenes.boat = {
       ctx.fillStyle = 'rgba(255,255,255,' + (0.55 * k).toFixed(2) + ')';
       ctx.fillRect(Math.round(fp.x - camX), Math.round(fp.y - camY), k > 0.5 ? 2 : 1, 1);
     }
-    // shore ring
-    ctx.fillStyle = '#caa86a';
-    if (camY < 14) ctx.fillRect(0, -camY, SW, 14);
-    if (camY > Wd.h - SH - 14) ctx.fillRect(0, Wd.h - 14 - camY, SW, 14);
-    if (camX < 14) ctx.fillRect(-camX, 0, 14, SH);
-    if (camX > Wd.w - SW - 14) ctx.fillRect(Wd.w - 14 - camX, 0, 14, SH);
-    ctx.fillStyle = '#2a6a30';
-    if (camY < 6) ctx.fillRect(0, -camY, SW, 6);
-    if (camY > Wd.h - SH - 6) ctx.fillRect(0, Wd.h - 6 - camY, SW, 6);
-    if (camX < 6) ctx.fillRect(-camX, 0, 6, SH);
-    if (camX > Wd.w - SW - 6) ctx.fillRect(Wd.w - 6 - camX, 0, 6, SH);
+    // shore ring (rectangular lakes only — traced lakes draw their own shoreline)
+    if (!Wd.poly) {
+      ctx.fillStyle = '#caa86a';
+      if (camY < 14) ctx.fillRect(0, -camY, SW, 14);
+      if (camY > Wd.h - SH - 14) ctx.fillRect(0, Wd.h - 14 - camY, SW, 14);
+      if (camX < 14) ctx.fillRect(-camX, 0, 14, SH);
+      if (camX > Wd.w - SW - 14) ctx.fillRect(Wd.w - 14 - camX, 0, 14, SH);
+      ctx.fillStyle = '#2a6a30';
+      if (camY < 6) ctx.fillRect(0, -camY, SW, 6);
+      if (camY > Wd.h - SH - 6) ctx.fillRect(0, Wd.h - 6 - camY, SW, 6);
+      if (camX < 6) ctx.fillRect(-camX, 0, 6, SH);
+      if (camX > Wd.w - SW - 6) ctx.fillRect(Wd.w - 6 - camX, 0, 6, SH);
+    }
 
-    // the island — sandy rim, grass, dense hemlock stands
+    // the island — outline traced from the satellite closeup
     {
       const I = Wd.island;
       const ix = I.x - camX, iy = I.y - camY;
-      if (ix > -I.rx * 1.8 && ix < SW + I.rx * 1.8 && iy > -I.ry * 2.5 && iy < SH + I.ry * 2.5) {
-        const lobes = [[0, 0, 1], [-I.rx * 0.62, I.ry * 0.18, 0.52], [I.rx * 0.6, -I.ry * 0.12, 0.55]];
-        for (const pass of [['#caa86a', 7], ['#2a6a30', 0]]) {
-          ctx.fillStyle = pass[0];
-          for (const lb of lobes) {
-            ctx.beginPath();
-            ctx.ellipse(ix + lb[0], iy + lb[1], I.rx * lb[2] + pass[1], I.ry * lb[2] + pass[1], 0, 0, Math.PI * 2);
-            ctx.fill();
-          }
-        }
-        // the sand spit running off the east tip
+      if (ix > -I.rx * 1.6 && ix < SW + I.rx * 1.6 && iy > -I.ry * 2.5 && iy < SH + I.ry * 2.5) {
+        const islPath = (k) => {
+          ctx.beginPath();
+          ISLAND_PTS.forEach((v, i2) => {
+            const px = ix + (v[0] * 2 - 1) * I.rx * k, py = iy + (v[1] * 2 - 1) * I.ry * k;
+            i2 ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+          });
+          ctx.closePath();
+        };
+        islPath(1);
+        ctx.strokeStyle = '#caa86a'; ctx.lineWidth = 7; ctx.lineJoin = 'round'; ctx.stroke();
+        ctx.fillStyle = '#caa86a'; ctx.fill();
+        ctx.lineWidth = 1;
+        islPath(0.92);
+        ctx.fillStyle = '#2a6a30'; ctx.fill();
+        // the bare sand point curving off the northeast tip
         ctx.fillStyle = '#caa86a';
         ctx.beginPath();
-        ctx.ellipse(ix + I.rx * 1.18, iy - I.ry * 0.05, I.rx * 0.32, Math.max(3, I.ry * 0.18), 0, 0, Math.PI * 2);
+        ctx.ellipse(ix + I.rx * 0.86, iy - I.ry * 0.14, I.rx * 0.18, Math.max(3, I.ry * 0.3), 0, 0, Math.PI * 2);
         ctx.fill();
+        // forest floor + hemlock stands (kept off the point)
         const ir = mulberry32(I.seed);
         ctx.fillStyle = '#1d5226';
-        for (let i = 0; i < I.rx * 2.4; i++) {
-          const a = ir() * Math.PI * 2, rad = Math.sqrt(ir()) * 0.85;
-          ctx.fillRect(Math.round(ix + Math.cos(a) * I.rx * rad), Math.round(iy + Math.sin(a) * I.ry * rad), 2, 1);
+        for (let i = 0, put = 0; i < 900 && put < I.rx * 2; i++) {
+          const u = ir(), v2 = ir();
+          if (u < 0.78 && pointInPoly(u, v2, ISLAND_PTS)) {
+            ctx.fillRect(Math.round(ix + (u * 2 - 1) * I.rx * 0.88), Math.round(iy + (v2 * 2 - 1) * I.ry * 0.88), 2, 1);
+            put++;
+          }
         }
-        for (let t = 0; t < 14; t++) {
-          const a = ir() * Math.PI * 2, rad = Math.sqrt(ir()) * 0.72;
-          const tx = Math.round(ix + Math.cos(a) * I.rx * rad), ty = Math.round(iy + Math.sin(a) * I.ry * rad);
+        for (let i = 0, trees = 0; i < 400 && trees < 12; i++) {
+          const u = ir(), v2 = ir();
+          if (u < 0.72 && pointInPoly(u, v2, ISLAND_PTS)) {
+            const tx = Math.round(ix + (u * 2 - 1) * I.rx * 0.8), ty = Math.round(iy + (v2 * 2 - 1) * I.ry * 0.8);
+            ctx.fillStyle = '#0f3a18';
+            ctx.fillRect(tx - 2, ty - 1, 5, 2);
+            ctx.fillRect(tx - 1, ty - 3, 3, 2);
+            ctx.fillRect(tx, ty - 5, 1, 2);
+            ctx.fillStyle = '#4a3420';
+            ctx.fillRect(tx, ty + 1, 1, 2);
+            trees++;
+          }
+        }
+      }
+      // islets out in the big basin
+      for (const sI of Wd.islets) {
+        const sx2 = sI.x - camX, sy2 = sI.y - camY;
+        if (sx2 < -50 || sx2 > SW + 50 || sy2 < -50 || sy2 > SH + 50) continue;
+        ctx.fillStyle = '#caa86a';
+        ctx.beginPath(); ctx.ellipse(sx2, sy2, sI.r + 5, (sI.r + 5) * 0.7, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#2a6a30';
+        ctx.beginPath(); ctx.ellipse(sx2, sy2, sI.r, sI.r * 0.65, 0, 0, Math.PI * 2); ctx.fill();
+        const ir2 = mulberry32(sI.seed);
+        for (let t2 = 0; t2 < 4; t2++) {
+          const tx = Math.round(sx2 + (ir2() - 0.5) * sI.r), ty = Math.round(sy2 + (ir2() - 0.5) * sI.r * 0.5);
           ctx.fillStyle = '#0f3a18';
-          ctx.fillRect(tx - 2, ty - 1, 5, 2);
-          ctx.fillRect(tx - 1, ty - 3, 3, 2);
-          ctx.fillRect(tx, ty - 5, 1, 2);
-          ctx.fillStyle = '#4a3420';
-          ctx.fillRect(tx, ty + 1, 1, 2);
+          ctx.fillRect(tx - 1, ty - 1, 3, 2); ctx.fillRect(tx, ty - 3, 1, 2);
         }
       }
     }
@@ -515,7 +621,15 @@ RT.scenes.boat = {
       const mw = 56, mh = Math.max(24, Math.round(mw * Wd.h / Wd.w));
       const mx = W - mw - 4, my = H - mh - 4;
       panel(ctx, mx - 1, my - 1, mw + 2, mh + 2);
-      ctx.fillStyle = '#123a42'; ctx.fillRect(mx, my, mw, mh);
+      const k2m = mw / Wd.w;
+      ctx.fillStyle = Wd.poly ? '#1d3a1a' : '#123a42';
+      ctx.fillRect(mx, my, mw, mh);
+      if (Wd.poly) {
+        ctx.fillStyle = '#123a42';
+        ctx.beginPath();
+        Wd.poly.forEach((v, i) => { i ? ctx.lineTo(mx + v[0] * k2m, my + v[1] * k2m) : ctx.moveTo(mx + v[0] * k2m, my + v[1] * k2m); });
+        ctx.closePath(); ctx.fill();
+      }
       const k = mw / Wd.w;
       for (const s of Wd.spots) {
         ctx.fillStyle = s.isHot ? '#ffd040' : '#3a9a50';

@@ -43,6 +43,30 @@ const FISH = {
   warden:     { name: 'THE WARDEN',      base: 1200,wMin: 38,  wMax: 46,   fight: 0.97, col: '#3a5a3a', legend: true },
 };
 
+// The island, traced from the satellite closeup: bulky lobed west half,
+// a narrow neck, a knob, then the bare sand point at the east tip.
+// Normalized to its own bounding box.
+const ISLAND_PTS = [
+  [0.00, 0.54], [0.05, 0.40], [0.13, 0.32], [0.21, 0.38], [0.29, 0.28],
+  [0.38, 0.36], [0.46, 0.30], [0.55, 0.40], [0.62, 0.26], [0.68, 0.24],
+  [0.72, 0.36], [0.80, 0.38], [0.88, 0.40], [1.00, 0.42], [0.88, 0.54],
+  [0.76, 0.58], [0.64, 0.56], [0.52, 0.64], [0.45, 0.74], [0.36, 0.70],
+  [0.22, 0.74], [0.10, 0.68], [0.03, 0.62],
+];
+
+// Trout Lake, traced from the satellite overview: broad west basin (the
+// island sits low in it), a mid-lake pinch, Camp Champlain bay bulging
+// north, the narrow Redbridge arm running NE, a big peninsula and bays
+// along the south shore. Normalized to the world rectangle.
+const TROUT_PTS = [
+  [0.02, 0.50], [0.05, 0.34], [0.13, 0.28], [0.20, 0.36], [0.27, 0.30],
+  [0.33, 0.42], [0.40, 0.36], [0.47, 0.24], [0.55, 0.18], [0.62, 0.26],
+  [0.68, 0.34], [0.76, 0.26], [0.85, 0.14], [0.92, 0.18], [0.90, 0.32],
+  [0.97, 0.44], [0.90, 0.56], [0.80, 0.52], [0.72, 0.64], [0.62, 0.58],
+  [0.55, 0.72], [0.45, 0.68], [0.36, 0.78], [0.26, 0.72], [0.17, 0.80],
+  [0.08, 0.70], [0.03, 0.60],
+];
+
 // fish: [speciesId, spawn weight] — higher tiers get boosted near weeds.
 const LAKES = [
   {
@@ -61,6 +85,7 @@ const LAKES = [
   },
   {
     name: 'TROUT LAKE', unlock: 1000, patrol: 2, w: 1680, h: 760,
+    poly: TROUT_PTS, isl: { x: 0.15, y: 0.55, k: 0.55 },
     spotN: 7, rockN: 14, sweep: 1.6,
     fish: [['walleye', 26], ['catfish', 22], ['pike', 20], ['laketrout', 18], ['musky', 9]],
     legend: 'warden',
