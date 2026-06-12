@@ -60,11 +60,11 @@ const LAKES = [
     blurb: 'PROPER BASS WATER. ONE PATROL BOAT WORKS IT.',
   },
   {
-    name: 'GRANITE RESERVOIR', unlock: 1000, patrol: 2, w: 1400, h: 920,
+    name: 'TROUT LAKE', unlock: 1000, patrol: 2, w: 1680, h: 760,
     spotN: 7, rockN: 14, sweep: 1.6,
     fish: [['walleye', 26], ['catfish', 22], ['pike', 20], ['laketrout', 18], ['musky', 9]],
     legend: 'warden',
-    blurb: 'TROPHY WATER. CRAWLING WITH RANGERS.',
+    blurb: 'BIG COLD TROPHY WATER. CRAWLING WITH RANGERS.',
   },
 ];
 
@@ -106,4 +106,6 @@ const TIPS = [
   'TIP: FOG HIDES YOU FROM PATROLS. ALSO HIDES THE ROCKS.',
   'TIP: THE STAR SPOT IS RED HOT TODAY ONLY.',
   'TIP: LEGENDS WAKE UP AFTER 7 PM.',
+  'TIP: RAM FLOATING CRATES. FINDERS KEEPERS.',
+  'TIP: A POLICE SCANNER BUYS YOU 20 QUIET SECONDS.',
 ];

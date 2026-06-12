@@ -136,6 +136,7 @@ RT.scenes.fish = {
   sweepUpdate(dt) {
     const T = G.trip, L = LAKES[T.lake], S = this.sweep;
     if (L.sweep <= 0) return;
+    if (T.scanT > 0) { T.scanT -= dt; if (S.st === 'off') return; } // scanner buys quiet water
     S.t -= dt;
     const hunkered = held('lay');
     if (S.st === 'off' && S.t <= 0) {
@@ -576,7 +577,7 @@ RT.scenes.fish = {
     ctx.fillStyle = '#fff'; ctx.fillRect(301, H - 19, 1, 3); ctx.fillRect(299, H - 17, 2, 1);
     text(ctx, 'LURE', 290, H - 9, '#fff');
 
-    panel(ctx, 70, 4, 110, 12); drawCooler(74, 5);
+    panel(ctx, 66, 4, 146, 14); drawCooler(70, 5);
 
     // contextual hints
     if (this.mode === 'aim') {
@@ -601,7 +602,7 @@ RT.scenes.fish = {
       const c = this.card;
       const k = Math.min(1, (c.t || 0) / 0.25);
       const py = Math.round(lerp(-120, 50, 1 - (1 - k) * (1 - k)));
-      panel(ctx, 40, py, 240, 110);
+      panel2(ctx, 40, py, 240, 110);
       textC(ctx, c.f.legend ? '** LEGENDARY **' : 'FISH ON BOARD!', W / 2, py + 6, c.f.legend ? '#ffd040' : '#8f8');
       if (c.f.legend) starburst(ctx, W / 2, py + 32, G.t);
       drawFish(ctx, W / 2, py + 32, (28 + 38 * clamp(c.w / c.f.wMax, 0, 1)) * Math.min(1, c.t / 0.35 + 0.25), c.f.col);

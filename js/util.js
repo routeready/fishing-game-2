@@ -77,6 +77,30 @@ function drawFish(c, x, y, len, col) {
   }
 }
 
+// 8x8 pixel icons for HUD chips and menu rows.
+function drawIcon(c, name, x, y) {
+  if (name === 'can') {
+    c.fillStyle = '#c0c8d0'; c.fillRect(x + 1, y, 5, 1); c.fillRect(x + 1, y + 6, 5, 1);
+    c.fillStyle = '#f0c020'; c.fillRect(x + 1, y + 1, 5, 5);
+    c.fillStyle = '#a08010'; c.fillRect(x + 1, y + 3, 5, 1);
+  } else if (name === 'siren') {
+    c.fillStyle = '#888'; c.fillRect(x, y + 5, 8, 2);
+    c.fillStyle = '#f03030'; c.fillRect(x + 1, y + 1, 3, 4);
+    c.fillStyle = '#3060f0'; c.fillRect(x + 4, y + 1, 3, 4);
+  } else if (name === 'rod') {
+    c.strokeStyle = '#d8c8a8'; c.lineWidth = 1;
+    c.beginPath(); c.moveTo(x, y + 7); c.lineTo(x + 6, y); c.stroke();
+    c.fillStyle = '#cfe8e8'; c.fillRect(x + 6, y + 1, 1, 3);
+  } else if (name === 'boat') {
+    c.fillStyle = '#b03028'; c.fillRect(x, y + 4, 8, 3);
+    c.fillStyle = '#d8d0c0'; c.fillRect(x + 1, y + 5, 6, 1);
+    c.fillStyle = '#403830'; c.fillRect(x + 2, y + 2, 2, 2);
+  } else if (name === 'coin') {
+    c.fillStyle = '#ffd040'; c.fillRect(x + 1, y + 1, 6, 6); c.fillRect(x + 2, y, 4, 1); c.fillRect(x + 2, y + 7, 4, 1);
+    c.fillStyle = '#a08010'; c.fillRect(x + 3, y + 2, 2, 4);
+  }
+}
+
 // Rotating gold starburst (legendary catches).
 function starburst(c, x, y, t) {
   c.fillStyle = '#ffd040';

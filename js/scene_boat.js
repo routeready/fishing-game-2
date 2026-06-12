@@ -5,14 +5,22 @@ function genLake(li) {
   const L = LAKES[li];
   const r = mulberry32(G.daily.seed * 7919 + li * 101 + 13);
   const world = { w: L.w, h: L.h, spots: [], rocks: [], buoys: [], patrols: [] };
-  world.dock = { x: L.w / 2, y: L.h - 30 };
+  // The island anchors every lake; Earl's dock is on its south shore.
+  const irx = Math.min(L.w * 0.14, 215);
+  world.island = { x: L.w / 2, y: L.h / 2, rx: irx, ry: irx * 0.42, seed: Math.floor(r() * 1e9) };
+  world.dock = { x: L.w / 2, y: L.h / 2 + world.island.ry + 26 };
+  function islE(x, y, pad) {
+    const I = world.island;
+    const dx = (x - I.x) / (I.rx + pad), dy = (y - I.y) / (I.ry + pad);
+    return dx * dx + dy * dy;
+  }
 
   const placed = [];
   function place(margin, minGap) {
     for (let tries = 0; tries < 60; tries++) {
       const x = margin + r() * (L.w - margin * 2);
       const y = margin + r() * (L.h - margin * 2 - 80);
-      let ok = dist(x, y, world.dock.x, world.dock.y) > 120;
+      let ok = dist(x, y, world.dock.x, world.dock.y) > 120 && islE(x, y, Math.max(55, world.island.rx * 0.55)) > 1;
       for (const p of placed) if (dist(x, y, p.x, p.y) < minGap) { ok = false; break; }
       if (ok) { placed.push({ x, y }); return { x, y }; }
     }
@@ -49,7 +57,19 @@ function genLake(li) {
       seen: false, wasClose: false, chirpT: 0,
     });
   }
-  world.boat = { x: world.dock.x, y: world.dock.y - 24, ang: -Math.PI / 2, v: 0, stun: 0 };
+  // floating goodies to ram with the boat
+  world.pickups = [];
+  function addPickup() {
+    const roll = r ? r() : Math.random();
+    const kind = roll < 0.5 ? 'sixpack' : (roll < 0.9 ? 'cash' : 'scanner');
+    if (kind === 'scanner' && world.pickups.some(p => p.kind === 'scanner')) return addPickup();
+    const p = place(70, 70);
+    world.pickups.push({ x: p.x, y: p.y, kind, bobT: r() * 9 });
+  }
+  world.addPickup = addPickup;
+  const nPick = 4 + Math.floor(r() * 3);
+  for (let i = 0; i < nPick; i++) addPickup();
+  world.boat = { x: world.dock.x, y: world.dock.y + 22, ang: Math.PI / 2, v: 0, stun: 0 };
   return world;
 }
 
@@ -65,7 +85,9 @@ RT.scenes.boat = {
     this.pull = 0;   // 'PULL OVER' cutscene timer
     this.hintT = 0;
     this.foam = []; // wake particles
+    this.floaters = []; // rising reward texts
     this.motorT = 0; this.dockArm = 0;
+    this.driftT = rnd(35, 55);
   },
   update(dt) {
     const T = G.trip, Wd = T.world, B = Wd.boat, L = LAKES[T.lake];
@@ -135,6 +157,55 @@ RT.scenes.boat = {
         B.v *= 0.25;
       }
     }
+    // the island and its east sand spit — run aground
+    {
+      const I = Wd.island;
+      const zones = [
+        [I.x, I.y, I.rx + 7, I.ry + 7],
+        [I.x + I.rx * 1.18, I.y - I.ry * 0.05, I.rx * 0.32 + 6, I.ry * 0.18 + 6],
+      ];
+      for (const zn of zones) {
+        const ex = (B.x - zn[0]) / zn[2], ey = (B.y - zn[1]) / zn[3];
+        const e = Math.sqrt(ex * ex + ey * ey);
+        if (e < 1) {
+          const f = 1.02 / (e || 0.001);
+          B.x = zn[0] + (B.x - zn[0]) * f;
+          B.y = zn[1] + (B.y - zn[1]) * f;
+          if (B.v > 25) { SFX.bonk(); RT.addShake(2, 0.2); toast('RAN AGROUND!', '#f88'); B.stun = 0.4; }
+          B.v *= 0.25;
+        }
+      }
+    }
+
+    // --- pickups ---
+    if (T.scanT > 0) T.scanT -= dt;
+    this.driftT -= dt;
+    if (this.driftT <= 0) {
+      this.driftT = rnd(35, 55);
+      if (Wd.pickups.length < 7) Wd.addPickup();
+    }
+    for (let i = Wd.pickups.length - 1; i >= 0; i--) {
+      const P = Wd.pickups[i];
+      if (dist(B.x, B.y, P.x, P.y) > 14) continue;
+      Wd.pickups.splice(i, 1);
+      SFX.pickup(); RT.addFlash('#ffffff', 0.08); RT.vibrate(30);
+      let txt = '';
+      if (P.kind === 'sixpack') {
+        T.cans = Math.min(12, T.cans + 3);
+        txt = '+3 COLD ONES';
+      } else if (P.kind === 'cash') {
+        const amt = 15 + Math.floor(Math.random() * 16) + T.lake * 10;
+        G.save.cash += amt; persist();
+        txt = '+' + money(amt);
+      } else {
+        T.scanT = 20;
+        txt = 'POLICE SCANNER!';
+        earlSay('EARL: OOH, CHANNEL 9. THE LAW SOUNDS GRUMPY.', 3.5);
+      }
+      this.floaters.push({ txt, x: P.x, y: P.y - 10, t: 0 });
+    }
+    for (const fl of this.floaters) fl.t += dt;
+    this.floaters = this.floaters.filter(fl => fl.t < 1.1);
 
     // --- patrols ---
     const R = 130 * G.daily.weather.copR;
@@ -166,8 +237,8 @@ RT.scenes.boat = {
       }
       P.seen = seen;
     }
-    // suspicion
-    if (T.suspGrace <= 0 && seenAny) {
+    // suspicion (the scanner tells you where they're looking)
+    if (T.suspGrace <= 0 && seenAny && !(T.scanT > 0)) {
       let rate = 0;
       rate += weave * 26;                                   // weaving wake
       if (T.drinking > 0) rate += 55;                       // can in hand, in plain view
@@ -203,16 +274,20 @@ RT.scenes.boat = {
   },
   draw() {
     const T = G.trip, Wd = T.world, B = Wd.boat, L = LAKES[T.lake];
-    const camX = clamp(B.x - W / 2, 0, Wd.w - W);
-    const camY = clamp(B.y - H / 2, 0, Wd.h - H);
+    const Z = 0.7; // zoomed out: more water in view around Hemlock Island
+    const SW = W / Z, SH = H / Z;
+    const camX = clamp(B.x - SW / 2, 0, Math.max(0, Wd.w - SW));
+    const camY = clamp(B.y - SH / 2, 0, Math.max(0, Wd.h - SH));
     const fog = G.daily.weather.id === 'FOG';
+    ctx.save();
+    ctx.scale(Z, Z);
 
     // water
-    ctx.fillStyle = '#1f7a86'; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#1f7a86'; ctx.fillRect(0, 0, SW, SH);
     ctx.fillStyle = '#2e96a2';
-    for (let y = -((camY | 0) % 12); y < H; y += 12) {
+    for (let y = -((camY | 0) % 12); y < SH; y += 12) {
       const off = Math.sin(G.t * 1.1 + (y + camY) * 0.13) * 9;
-      ctx.fillRect(0, y, W, 1);
+      ctx.fillRect(0, y, SW, 1);
       ctx.fillRect(Math.round(60 + off + ((y + camY) * 17) % 220 - camX % 40), y + 6, 16, 1);
     }
     // sun glints (only when the sun's out)
@@ -222,7 +297,7 @@ RT.scenes.boat = {
       for (let i = 0; i < 8; i++) {
         const gx = (i * 397 + gs * 173) % Wd.w - camX;
         const gy = (i * 593 + gs * 257) % Wd.h - camY;
-        if (gx >= 0 && gx < W && gy >= 0 && gy < H) ctx.fillRect(gx, gy, 2, 1);
+        if (gx >= 0 && gx < SW && gy >= 0 && gy < SH) ctx.fillRect(gx, gy, 2, 1);
       }
     }
     // wake foam
@@ -233,20 +308,58 @@ RT.scenes.boat = {
     }
     // shore ring
     ctx.fillStyle = '#caa86a';
-    if (camY < 14) ctx.fillRect(0, -camY, W, 14);
-    if (camY > Wd.h - H - 14) ctx.fillRect(0, Wd.h - 14 - camY, W, 14);
-    if (camX < 14) ctx.fillRect(-camX, 0, 14, H);
-    if (camX > Wd.w - W - 14) ctx.fillRect(Wd.w - 14 - camX, 0, 14, H);
+    if (camY < 14) ctx.fillRect(0, -camY, SW, 14);
+    if (camY > Wd.h - SH - 14) ctx.fillRect(0, Wd.h - 14 - camY, SW, 14);
+    if (camX < 14) ctx.fillRect(-camX, 0, 14, SH);
+    if (camX > Wd.w - SW - 14) ctx.fillRect(Wd.w - 14 - camX, 0, 14, SH);
     ctx.fillStyle = '#2a6a30';
-    if (camY < 6) ctx.fillRect(0, -camY, W, 6);
-    if (camY > Wd.h - H - 6) ctx.fillRect(0, Wd.h - 6 - camY, W, 6);
-    if (camX < 6) ctx.fillRect(-camX, 0, 6, H);
-    if (camX > Wd.w - W - 6) ctx.fillRect(Wd.w - 6 - camX, 0, 6, H);
+    if (camY < 6) ctx.fillRect(0, -camY, SW, 6);
+    if (camY > Wd.h - SH - 6) ctx.fillRect(0, Wd.h - 6 - camY, SW, 6);
+    if (camX < 6) ctx.fillRect(-camX, 0, 6, SH);
+    if (camX > Wd.w - SW - 6) ctx.fillRect(Wd.w - 6 - camX, 0, 6, SH);
+
+    // the island — sandy rim, grass, dense hemlock stands
+    {
+      const I = Wd.island;
+      const ix = I.x - camX, iy = I.y - camY;
+      if (ix > -I.rx * 1.8 && ix < SW + I.rx * 1.8 && iy > -I.ry * 2.5 && iy < SH + I.ry * 2.5) {
+        const lobes = [[0, 0, 1], [-I.rx * 0.62, I.ry * 0.18, 0.52], [I.rx * 0.6, -I.ry * 0.12, 0.55]];
+        for (const pass of [['#caa86a', 7], ['#2a6a30', 0]]) {
+          ctx.fillStyle = pass[0];
+          for (const lb of lobes) {
+            ctx.beginPath();
+            ctx.ellipse(ix + lb[0], iy + lb[1], I.rx * lb[2] + pass[1], I.ry * lb[2] + pass[1], 0, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+        // the sand spit running off the east tip
+        ctx.fillStyle = '#caa86a';
+        ctx.beginPath();
+        ctx.ellipse(ix + I.rx * 1.18, iy - I.ry * 0.05, I.rx * 0.32, Math.max(3, I.ry * 0.18), 0, 0, Math.PI * 2);
+        ctx.fill();
+        const ir = mulberry32(I.seed);
+        ctx.fillStyle = '#1d5226';
+        for (let i = 0; i < I.rx * 2.4; i++) {
+          const a = ir() * Math.PI * 2, rad = Math.sqrt(ir()) * 0.85;
+          ctx.fillRect(Math.round(ix + Math.cos(a) * I.rx * rad), Math.round(iy + Math.sin(a) * I.ry * rad), 2, 1);
+        }
+        for (let t = 0; t < 14; t++) {
+          const a = ir() * Math.PI * 2, rad = Math.sqrt(ir()) * 0.72;
+          const tx = Math.round(ix + Math.cos(a) * I.rx * rad), ty = Math.round(iy + Math.sin(a) * I.ry * rad);
+          ctx.fillStyle = '#0f3a18';
+          ctx.fillRect(tx - 2, ty - 1, 5, 2);
+          ctx.fillRect(tx - 1, ty - 3, 3, 2);
+          ctx.fillRect(tx, ty - 5, 1, 2);
+          ctx.fillStyle = '#4a3420';
+          ctx.fillRect(tx, ty + 1, 1, 2);
+        }
+      }
+    }
 
     // weed spots
     for (const s of Wd.spots) {
       const sx = s.x - camX, sy = s.y - camY;
-      if (sx < -90 || sx > W + 90 || sy < -70 || sy > H + 70) continue;
+      if (sx < -90 || sx > SW + 90 || sy < -70 || sy > SH + 70) continue;
       for (const wd of s.weeds) {
         const r = mulberry32(wd.s);
         ctx.fillStyle = '#1d5a30';
@@ -285,7 +398,7 @@ RT.scenes.boat = {
     // patrols
     for (const P of Wd.patrols) {
       const sx = P.x - camX, sy = P.y - camY;
-      if (sx < -40 || sx > W + 40 || sy < -40 || sy > H + 40) continue;
+      if (sx < -40 || sx > SW + 40 || sy < -40 || sy > SH + 40) continue;
       ctx.fillStyle = '#e8e8e8'; ctx.fillRect(sx - 8, sy - 4, 16, 8);
       ctx.fillStyle = '#3a3a3a'; ctx.fillRect(sx - 5, sy - 2, 10, 4);
       const phase = Math.floor(G.t * 6) % 2;
@@ -293,6 +406,31 @@ RT.scenes.boat = {
       ctx.fillRect(sx - 2, sy - 7, 4, 3);
       textCS(ctx, 'COPS', sx, sy - 14, '#f88');
       if (P.seen && Math.floor(G.t * 4) % 2 === 0) textCS(ctx, '!', sx, sy - 22, '#f44', 2);
+    }
+    // pickups bobbing on the water
+    for (const P of Wd.pickups) {
+      const sx = P.x - camX, sy = P.y - camY + Math.sin(G.t * 2 + P.bobT) * 1.5;
+      if (sx < -20 || sx > SW + 20 || sy < -20 || sy > SH + 20) continue;
+      if (P.kind === 'sixpack') {
+        ctx.fillStyle = '#f0c020'; ctx.fillRect(sx - 4, sy - 3, 8, 6);
+        ctx.fillStyle = '#c0c8d0'; ctx.fillRect(sx - 4, sy - 3, 8, 1);
+        ctx.fillStyle = '#a08010'; ctx.fillRect(sx - 1, sy - 3, 1, 6); ctx.fillRect(sx + 2, sy - 3, 1, 6);
+      } else if (P.kind === 'cash') {
+        ctx.fillStyle = '#8a6a3a'; ctx.fillRect(sx - 4, sy - 3, 9, 7);
+        ctx.fillStyle = '#6a4a2a'; ctx.fillRect(sx - 4, sy - 3, 9, 1); ctx.fillRect(sx - 4, sy + 3, 9, 1);
+        textC(ctx, '$', sx + 1, sy - 2, '#8f8');
+      } else {
+        ctx.fillStyle = '#204060'; ctx.fillRect(sx - 4, sy - 2, 8, 5);
+        ctx.fillStyle = '#9fd'; ctx.fillRect(sx - 3, sy - 1, 3, 2);
+        if (Math.floor(G.t * 5) % 2 === 0) { ctx.fillStyle = '#f03030'; ctx.fillRect(sx + 2, sy - 4, 2, 2); }
+        ctx.fillStyle = '#888'; ctx.fillRect(sx + 3, sy - 6, 1, 3);
+      }
+    }
+    // reward floaters
+    for (const fl of this.floaters) {
+      const k = fl.t / 1.1;
+      if (Math.floor(k * 16) % 4 === 3) continue; // sparkle flicker
+      textCS(ctx, fl.txt, fl.x - camX, fl.y - camY - k * 14, k < 0.5 ? '#ffd040' : '#fff');
     }
     // player boat
     {
@@ -315,8 +453,7 @@ RT.scenes.boat = {
       ctx.restore();
       if (T.drinking > 0) textCS(ctx, 'GLUG', sx + 10, sy - 12, '#ffd040');
     }
-    // weather: overcast dims, breezy drags cloud shadows over the water
-    if (G.daily.weather.id === 'OVERCAST') { ctx.fillStyle = 'rgba(70,82,96,0.16)'; ctx.fillRect(0, 0, W, H); }
+    // breezy cloud shadows are world-anchored, so they live in the scaled layer
     if (G.daily.weather.id === 'BREEZY') {
       ctx.fillStyle = 'rgba(8,28,38,0.13)';
       const spd2 = 14 + G.daily.windSpd * 5;
@@ -326,6 +463,13 @@ RT.scenes.boat = {
         ctx.beginPath(); ctx.ellipse(cx2, cy2, 95, 42, 0, 0, Math.PI * 2); ctx.fill();
       }
     }
+    ctx.restore();
+    {
+      const I = Wd.island;
+      textCS(ctx, 'DRUG & ALCOHOL ABUSE ISLAND', (I.x - camX) * Z, (I.y - I.ry - 26 - camY) * Z, '#ffe080');
+      textCS(ctx, 'PROSTITUTE POINT', (I.x + I.rx * 1.18 - camX) * Z, (I.y + I.ry * 0.42 - camY) * Z, '#f8c8d8');
+    }
+    if (G.daily.weather.id === 'OVERCAST') { ctx.fillStyle = 'rgba(70,82,96,0.16)'; ctx.fillRect(0, 0, W, H); }
     // fog overlay
     if (fog) {
       ctx.fillStyle = 'rgba(210,220,220,0.22)';
@@ -351,7 +495,13 @@ RT.scenes.boat = {
     panel(ctx, 4, 4, 58, 20); drawClock(8, 7);
     drawBuzz(W - 52, 6);
     drawWeatherIcon(W - 22, 30);
-    panel(ctx, 4, H - 16, 150, 12); drawCooler(8, H - 15);
+    panel(ctx, 4, H - 18, 160, 14); drawCooler(8, H - 16);
+    // police scanner chip
+    if (T.scanT > 0) {
+      panel(ctx, 4, 42, 58, 12);
+      text(ctx, 'SCAN', 8, 45, '#9fd');
+      text(ctx, Math.ceil(T.scanT) + 'S', 40, 45, Math.floor(G.t * 4) % 2 === 0 ? '#fff' : '#9fd');
+    }
     // suspicion eye
     if (T.susp > 1) {
       panel(ctx, 4, 28, 58, 12);
@@ -371,8 +521,17 @@ RT.scenes.boat = {
         ctx.fillStyle = s.isHot ? '#ffd040' : '#3a9a50';
         ctx.fillRect(mx + Math.round(s.x * k) - 1, my + Math.round(s.y * k) - 1, 2, 2);
       }
+      const I2 = Wd.island;
+      ctx.fillStyle = '#2a6a30';
+      ctx.beginPath();
+      ctx.ellipse(mx + I2.x * k, my + I2.y * k, Math.max(3, I2.rx * k), Math.max(2, I2.ry * k), 0, 0, Math.PI * 2);
+      ctx.fill();
       ctx.fillStyle = '#caa86a';
       ctx.fillRect(mx + Math.round(Wd.dock.x * k) - 1, my + Math.round(Wd.dock.y * k) - 1, 3, 2);
+      if (Math.floor(G.t * 3) % 2 === 0) {
+        ctx.fillStyle = '#ffe080';
+        for (const P2 of Wd.pickups) ctx.fillRect(mx + Math.round(P2.x * k), my + Math.round(P2.y * k), 1, 1);
+      }
       for (const P of Wd.patrols) {
         const px = mx + Math.round(P.x * k), py = my + Math.round(P.y * k);
         ctx.fillStyle = '#f03030'; ctx.fillRect(px - 2, py - 1, 2, 2);

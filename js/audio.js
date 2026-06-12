@@ -89,5 +89,6 @@ const SFX = (function () {
     tick(k) { tone(420 + k * 600, 420 + k * 600, 0.03, 'square', 0.045); },
     creak() { tone(150, 95, 0.12, 'sawtooth', 0.07); },
     cricket() { tone(4300, 4100, 0.04, 'square', 0.035); tone(4300, 4100, 0.04, 'square', 0.03, 0.08); },
+    pickup() { [784, 988, 1318].forEach((f, i) => tone(f, f, 0.07, 'square', 0.1, i * 0.06)); },
   };
 })();

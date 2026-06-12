@@ -165,6 +165,25 @@ assert.strictEqual(G.save.board[0].name, 'ANON', 'no name entered -> ANON');
 assert.strictEqual(G.save.board[0].score, G.save.records.haul, 'board keeps best haul');
 assert.ok(store['reelTrouble.v1'], 'save persisted');
 
+// water pickups: ram a six-pack, beer comes back
+RT.newTrip(0);
+G.trip.world = null;
+RT.setScene('boat', { fresh: true });
+{
+  const Wd = G.trip.world;
+  assert.ok(Wd.pickups.length >= 4, 'pickups seeded');
+  G.trip.cans = 2;
+  const cashB4 = G.save.cash;
+  const pk = Wd.pickups[0];
+  Wd.boat.x = pk.x; Wd.boat.y = pk.y;
+  const kind = pk.kind, n0 = Wd.pickups.length;
+  step(2);
+  assert.strictEqual(Wd.pickups.length, n0 - 1, 'pickup consumed');
+  if (kind === 'sixpack') assert.strictEqual(G.trip.cans, 5, 'six-pack restocks cans');
+  else if (kind === 'cash') assert.ok(G.save.cash > cashB4, 'crate pays cash');
+  else assert.ok(G.trip.scanT > 0, 'scanner timer running');
+}
+
 // breathalyzer: sober pass and hammered fail
 RT.newTrip(0);
 G.trip.world = null;

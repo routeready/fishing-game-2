@@ -67,6 +67,7 @@ function setScene(name, args) {
   G.sceneName = name;
   G.scene = RT.scenes[name];
   G.earl.txt = null; G.earl.ttl = 0; G.earl.offer = false;
+  FX.wipeT = 0.22; // shutter-open transition, drawn by the main loop
   if (G.scene.enter) G.scene.enter(args || {});
 }
 RT.setScene = setScene;
@@ -82,6 +83,7 @@ function newTrip(lakeIdx) {
     drinking: 0,         // seconds left in sip animation
     cooler: [],          // { id, name, w, val, buzz }
     nearMisses: 0,
+    scanT: 0,
     holdUsed: false,
     lastCallShown: false,
     over: false,
@@ -239,12 +241,34 @@ function panel(c, x, y, w, h) {
 }
 RT.panel = panel;
 
+// Bevelled 16-bit panel with an optional gold title strip.
+function panel2(c, x, y, w, h, title) {
+  c.fillStyle = '#060a0e'; c.fillRect(x - 2, y - 2, w + 4, h + 4);
+  c.fillStyle = '#101820'; c.fillRect(x, y, w, h);
+  c.fillStyle = '#4a7076'; c.fillRect(x, y, w, 1); c.fillRect(x, y, 1, h);
+  c.fillStyle = '#040608'; c.fillRect(x, y + h - 1, w, 1); c.fillRect(x + w - 1, y, 1, h);
+  c.fillStyle = '#1a262e'; c.fillRect(x + 1, y + 1, w - 2, 1);
+  if (title) {
+    c.fillStyle = '#243a42'; c.fillRect(x + 1, y + 1, w - 2, 11);
+    c.fillStyle = '#ffd040'; c.fillRect(x + 1, y + 12, w - 2, 1);
+    textC(c, title, x + w / 2, y + 4, '#ffd040');
+    text(c, '>>', x + 5, y + 4, '#7a5a10');
+    text(c, '<<', x + w - 13, y + 4, '#7a5a10');
+  }
+}
+RT.panel2 = panel2;
+
 function drawClock(x, y) {
   const T = G.trip;
   const cl = fmtClock(T ? T.timeMin : TRIP_START);
-  text(ctx, 'TIME', x, y, '#fff');
+  text(ctx, 'TIME', x, y, '#7fa0a6');
   text(ctx, cl.ap, x, y + 6, '#ffd040');
   text(ctx, cl.h + ':' + pad2(cl.m), x + 14, y + 5, '#fff', 2);
+  // little sun that sinks (and goes pale) as sundown nears
+  const dk = duskK();
+  ctx.fillStyle = dk > 0.6 ? '#cfd8e8' : '#ffd040';
+  ctx.fillRect(x + 45, y + Math.round(dk * 5), 4, 4);
+  if (dk > 0.6) { ctx.fillStyle = '#101820'; ctx.fillRect(x + 46, y + Math.round(dk * 5), 2, 2); }
 }
 RT.drawClock = drawClock;
 
@@ -268,16 +292,27 @@ RT.drawWind = drawWind;
 function drawBuzz(x, y) {
   const T = G.trip; if (!T) return;
   const pct = T.buzz / 10;
+  const over = T.buzz > BUZZ_LIMIT;
   // bulb + stem
   ctx.fillStyle = '#fff'; ctx.fillRect(x + 1, y, 3, 14);
   ctx.fillStyle = '#301818'; ctx.fillRect(x + 2, y + 1, 1, 12);
   const fillH = Math.round(12 * pct);
-  ctx.fillStyle = T.buzz > BUZZ_LIMIT ? '#f03030' : '#f0a030';
+  ctx.fillStyle = over ? '#f03030' : '#f0a030';
   if (fillH > 0) ctx.fillRect(x + 2, y + 13 - fillH, 1, fillH);
-  ctx.fillStyle = '#f03030'; ctx.fillRect(x, y + 13, 5, 4); // bulb
-  text(ctx, Math.round(T.buzz * 10) / 10 + '', x + 8, y + 2, T.buzz > BUZZ_LIMIT ? '#f66' : '#fff', 2);
+  // quarter ticks + the legal limit drawn as a hard red line
+  ctx.fillStyle = '#7fa0a6';
+  for (let q = 1; q < 4; q++) ctx.fillRect(x + 4, y + 13 - Math.round(12 * q * 0.25), 2, 1);
+  ctx.fillStyle = '#f03030';
+  ctx.fillRect(x - 1, y + 13 - Math.round(12 * BUZZ_LIMIT / 10), 7, 1);
+  ctx.fillRect(x, y + 13, 5, 4); // bulb
+  text(ctx, Math.round(T.buzz * 10) / 10 + '', x + 8, y + 2, over ? '#f66' : '#fff', 2);
   text(ctx, 'BUZZ', x + 8, y + 13, '#ffd040');
-  if (T.buzz > BUZZ_LIMIT && Math.floor(G.t * 2) % 2 === 0) textS(ctx, 'OVER LIMIT', x - 24, y + 23, '#f44');
+  if (over) {
+    const a = 0.3 + 0.2 * Math.sin(G.t * 6);
+    ctx.fillStyle = 'rgba(240,48,48,' + a.toFixed(2) + ')';
+    ctx.fillRect(x - 4, y - 3, 13, 1); ctx.fillRect(x - 4, y + 19, 13, 1);
+    if (Math.floor(G.t * 2) % 2 === 0) textS(ctx, 'OVER LIMIT', x - 24, y + 23, '#f44');
+  }
 }
 RT.drawBuzz = drawBuzz;
 
@@ -302,16 +337,26 @@ RT.drawWeatherIcon = drawWeatherIcon;
 
 function drawCooler(x, y) {
   const T = G.trip; if (!T) return;
-  // cooler box
+  const cap = coolerCap();
+  const full = T.cooler.length >= cap;
+  // cooler box + fill bar
   ctx.fillStyle = '#d04030'; ctx.fillRect(x, y + 2, 9, 6);
   ctx.fillStyle = '#fff'; ctx.fillRect(x, y + 1, 9, 2);
-  text(ctx, T.cooler.length + '/' + coolerCap(), x + 12, y + 2, T.cooler.length >= coolerCap() ? '#f66' : '#fff');
-  // beer can
-  ctx.fillStyle = '#f0c020'; ctx.fillRect(x + 38, y + 1, 5, 7);
-  ctx.fillStyle = '#c0c8d0'; ctx.fillRect(x + 38, y + 1, 5, 1); ctx.fillRect(x + 38, y + 7, 5, 1);
-  text(ctx, 'X' + T.cans, x + 46, y + 2, T.cans === 0 ? '#f66' : '#fff');
+  text(ctx, T.cooler.length + '/' + cap, x + 12, y + 2, full ? '#f66' : '#fff');
+  ctx.fillStyle = '#301010'; ctx.fillRect(x + 12, y + 8, 22, 2);
+  ctx.fillStyle = full ? '#f06040' : '#8f8';
+  ctx.fillRect(x + 12, y + 8, Math.round(22 * Math.min(1, T.cooler.length / cap)), 2);
+  // cans as a row of tiny icons (six-packs can push it past the trip ration)
+  const slots = Math.max(CANS_PER_TRIP, T.cans);
+  for (let i = 0; i < slots; i++) {
+    const cx2 = x + 40 + i * 4;
+    ctx.fillStyle = i < T.cans ? '#f0c020' : '#22323a';
+    ctx.fillRect(cx2, y + 2, 3, 6);
+    ctx.fillStyle = i < T.cans ? '#c0c8d0' : '#15222a';
+    ctx.fillRect(cx2, y + 2, 3, 1);
+  }
   const v = Math.round(coolerVal());
-  if (v > 0) text(ctx, money(v), x + 68, y + 2, '#8f8');
+  if (v > 0) text(ctx, money(v), x + 40 + slots * 4 + 4, y + 2, '#8f8');
 }
 RT.drawCooler = drawCooler;
 
@@ -342,7 +387,7 @@ function duskDraw() {
 RT.duskDraw = duskDraw;
 
 // ---------- screen shake & flash ----------
-const FX = { shT: 0, shDur: 1, shAmt: 0, flT: 0, flDur: 1, flCol: '#fff' };
+const FX = { shT: 0, shDur: 1, shAmt: 0, flT: 0, flDur: 1, flCol: '#fff', wipeT: 0 };
 function addShake(amt, dur) {
   FX.shAmt = Math.max(FX.shAmt, amt);
   FX.shT = Math.max(FX.shT, dur);
@@ -369,6 +414,7 @@ function frame(ts) {
     if (G.toast) { G.toast.t -= STEP; if (G.toast.t <= 0) G.toast = null; }
     if (FX.shT > 0) FX.shT -= STEP;
     if (FX.flT > 0) FX.flT -= STEP;
+    if (FX.wipeT > 0) FX.wipeT -= STEP;
     acc -= STEP;
   }
   const shk = FX.shT > 0 ? FX.shAmt * (FX.shT / FX.shDur) : 0;
@@ -382,6 +428,12 @@ function frame(ts) {
     ctx.fillStyle = FX.flCol;
     ctx.fillRect(0, 0, W, H);
     ctx.globalAlpha = 1;
+  }
+  if (FX.wipeT > 0) {
+    const hh = Math.round((H / 2) * (FX.wipeT / 0.22));
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, W, hh);
+    ctx.fillRect(0, H - hh, W, hh);
   }
   toastDraw();
   requestAnimationFrame(frame);
