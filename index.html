@@ -62,6 +62,19 @@
 </style>
 </head>
 <body>
+<script>
+// Self-heal stale caches: if boot crashes (mixed old/new files right
+// after a deploy), force one reload with a cache-busting query.
+window.addEventListener('error', function () {
+  try {
+    if (window.RT && RT.G && RT.G.t > 3) return; // game was running fine
+    if (sessionStorage.getItem('rtReboot')) return;
+    sessionStorage.setItem('rtReboot', '1');
+    location.replace(location.pathname + '?r=' + Date.now());
+  } catch (e) { /* best effort */ }
+});
+setTimeout(function () { try { sessionStorage.removeItem('rtReboot'); } catch (e) {} }, 4000);
+</script>
 <canvas id="game" width="320" height="224"></canvas>
 <div id="hint">ARROWS/WASD steer &amp; aim &middot; SPACE cast/strike/reel &middot; B crack a beer &middot; S lay low &middot; H hold my beer &middot; ESC pull anchor &middot; M mute</div>
 <script src="js/util.js"></script>

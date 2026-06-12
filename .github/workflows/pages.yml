@@ -22,6 +22,9 @@ jobs:
           mkdir -p /tmp/site
           cp index.html /tmp/site/
           cp -r js /tmp/site/
+          # cache-bust: stamp script URLs per deploy so phones never mix
+          # old and new js files
+          sed -i "s|src=\"js/\([a-z_]*\)\.js\"|src=\"js/\1.js?v=${GITHUB_SHA::8}\"|g" /tmp/site/index.html
           touch /tmp/site/.nojekyll
           cd /tmp/site
           git init -b gh-pages
