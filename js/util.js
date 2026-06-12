@@ -77,6 +77,16 @@ function drawFish(c, x, y, len, col) {
   }
 }
 
+// Ray-cast point-in-polygon (pts = [[x,y],...]).
+function pointInPoly(x, y, pts) {
+  let inside = false;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const xi = pts[i][0], yi = pts[i][1], xj = pts[j][0], yj = pts[j][1];
+    if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) inside = !inside;
+  }
+  return inside;
+}
+
 // 8x8 pixel icons for HUD chips and menu rows.
 function drawIcon(c, name, x, y) {
   if (name === 'can') {
