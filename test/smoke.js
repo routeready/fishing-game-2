@@ -184,6 +184,34 @@ RT.setScene('boat', { fresh: true });
   else assert.ok(G.trip.scanT > 0, 'scanner timer running');
 }
 
+// breathalyzer from the fishing spot: passing must NOT loop back into it
+RT.newTrip(0);
+G.trip.world = null;
+RT.setScene('boat', { fresh: true });
+{
+  const spot2 = G.trip.world.spots[1];
+  G.trip.world.boat.x = spot2.x; G.trip.world.boat.y = spot2.y; G.trip.world.boat.v = 0;
+  press('Space');
+  assert.strictEqual(G.sceneName, 'fish', 'anchored for breath test');
+  G.trip.buzz = 0;
+  G.trip.drinking = 1.2; // caught mid-sip
+  G.trip.sweep = { st: 'pass', t: 3, rolled: false, dir: 1 };
+  RT.setScene('breath', { from: 'fish' });
+  assert.strictEqual(G.trip.drinking, 0, 'can goes down at the stop');
+  const BR2 = RT.scenes.breath;
+  step(60);
+  for (let i = 0; i < 600 && Math.abs(BR2.nx) > 1.5; i++) step(1);
+  press('Space');
+  assert.strictEqual(BR2.done, 'pass', 'sober blow passes at anchor');
+  step(120);
+  assert.strictEqual(G.sceneName, 'fish', 'pass returns to the fishing spot');
+  assert.strictEqual(G.trip.sweep.st, 'off', 'patrol sweep cleared after pass');
+  step(30);
+  assert.strictEqual(G.sceneName, 'fish', 'no breathalyzer loop');
+  press('Escape');
+  assert.strictEqual(G.sceneName, 'boat', 'back to the boat');
+}
+
 // breathalyzer: sober pass and hammered fail
 RT.newTrip(0);
 G.trip.world = null;

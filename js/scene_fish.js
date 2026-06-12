@@ -26,7 +26,8 @@ RT.scenes.fish = {
     this.ripples = [];
     // patrol sweeps while anchored — state lives on the trip so weighing
     // anchor and dropping it again can't cancel an incoming patrol
-    this.sweep = T.sweep || (T.sweep = { st: 'off', t: L.sweep > 0 ? rnd(25, 60) / L.sweep : 1e9, rolled: false, dir: 1 });
+    if (!T.sweep) T.sweep = { st: 'off', t: L.sweep > 0 ? rnd(25, 60) / L.sweep : 1e9, rolled: false, dir: 1 };
+    this.sweep = T.sweep;
     T.spotId = this.spot.id; // so a passed breathalyzer can put us back here
     this.freeze = 0;
     this.reelT = 0; this.creakT = 0; this.cutArm = 0; this.tickT = 0; this.castTickT = 0;
@@ -136,6 +137,7 @@ RT.scenes.fish = {
   sweepUpdate(dt) {
     const T = G.trip, L = LAKES[T.lake], S = this.sweep;
     if (L.sweep <= 0) return;
+    if (T.suspGrace > 0) { T.suspGrace -= dt; return; } // just passed a test — they let you be
     if (T.scanT > 0) { T.scanT -= dt; if (S.st === 'off') return; } // scanner buys quiet water
     S.t -= dt;
     const hunkered = held('lay');

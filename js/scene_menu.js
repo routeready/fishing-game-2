@@ -457,6 +457,7 @@ RT.scenes.summary = {
 RT.scenes.breath = {
   enter(args) {
     this.from = args.from || 'boat';
+    if (G.trip) G.trip.drinking = 0; // the can went in the lake, obviously
     this.t = 0;
     this.done = null;     // 'pass' | 'fail'
     this.doneT = 0;
@@ -473,6 +474,9 @@ RT.scenes.breath = {
       if (this.doneT > 1.6) {
         if (this.done === 'pass') {
           T.suspGrace = 9;
+          // the patrol moves on — never resume a frozen mid-sweep state
+          const sw = LAKES[T.lake].sweep;
+          T.sweep = { st: 'off', t: sw > 0 ? rnd(35, 70) / sw : 1e9, rolled: false, dir: 1 };
           if (this.from === 'fish' && T.world) {
             const sp = T.world.spots.find(s => s.id === T.spotId);
             if (sp) { setScene('fish', { spot: sp }); return; }
