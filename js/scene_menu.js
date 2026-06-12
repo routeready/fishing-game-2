@@ -70,6 +70,15 @@ RT.scenes.title = {
     const champ = G.save.board[0];
     if (champ) textC(ctx, 'CHAMP: ' + champ.name + ' ' + money(champ.score), W / 2, 200, '#9fd');
     textC(ctx, 'DRINK RESPONSIBLY. IN-GAME, GO NUTS.', W / 2, 208, '#6a8a90');
+    // cabinet marquee: color-cycling dots chasing around the border
+    const mcols = ['#f06040', '#ffd040', '#40c060', '#4090f0'];
+    const phase = Math.floor(G.t * 8);
+    let di = 0;
+    const dot = (x, y) => { ctx.fillStyle = mcols[(di++ + phase) % 4]; ctx.fillRect(x, y, 3, 3); };
+    for (let x = 2; x < W - 4; x += 8) dot(x, 1);
+    for (let y = 9; y < H - 4; y += 8) dot(W - 5, y);
+    for (let x = W - 12; x > 0; x -= 8) dot(x, H - 4);
+    for (let y = H - 12; y > 8; y -= 8) dot(2, y);
   },
 };
 
@@ -90,8 +99,8 @@ RT.scenes.dock = {
       SFX.sel();
     }
     let go = pressed('ok') || pressed('act');
-    if (RT.tap && RT.tap.x > 70 && RT.tap.x < 250 && RT.tap.y > 95 && RT.tap.y < 200) {
-      this.cur = clamp(Math.floor((RT.tap.y - 98) / 14), 0, this.items.length - 1);
+    if (RT.tap && RT.tap.x > 70 && RT.tap.x < 250 && RT.tap.y > 105 && RT.tap.y < 200) {
+      this.cur = clamp(Math.floor((RT.tap.y - 107) / 13), 0, this.items.length - 1);
       go = true;
     }
     if (go) {
@@ -124,7 +133,7 @@ RT.scenes.dock = {
     text(ctx, 'STREAK ' + R.streak, 240, 48, '#fc8');
     text(ctx, 'TRIPS ' + R.trips, 240, 56, '#9fd');
 
-    panel(ctx, 70, 96, 180, 104);
+    panel2(ctx, 70, 92, 180, 108, "MURPHY'S MENU");
     for (let i = 0; i < this.items.length; i++) {
       let label = this.items[i];
       if (label === 'LAKE') {
@@ -132,8 +141,14 @@ RT.scenes.dock = {
         label = '< ' + LAKES[G.lake].name + (locked ? ' *LOCKED*' : '') + ' >';
       }
       const sel = i === this.cur;
-      if (sel) { ctx.fillStyle = '#24424a'; ctx.fillRect(74, 101 + i * 14 - 3, 172, 12); }
-      textC(ctx, label, W / 2, 101 + i * 14, sel ? '#ffd040' : '#cfe8e8');
+      const ry = 109 + i * 13;
+      if (sel) {
+        ctx.fillStyle = '#24424a'; ctx.fillRect(74, ry - 3, 172, 12);
+        ctx.fillStyle = '#ffd040'; ctx.fillRect(74, ry - 3, 1, 12); ctx.fillRect(245, ry - 3, 1, 12);
+        text(ctx, '>', 79, ry, '#ffd040');
+        text(ctx, '<', 236, ry, '#ffd040');
+      }
+      textC(ctx, label, W / 2, ry, sel ? '#ffd040' : '#cfe8e8');
     }
     textC(ctx, G.daily.tip, W / 2, 210, '#6fa6b2');
   },
@@ -171,16 +186,26 @@ RT.scenes.lakes = {
     textCS(ctx, 'PICK YOUR WATER', W / 2, 12, '#ffd040', 2);
     for (let i = 0; i < LAKES.length; i++) {
       const L = LAKES[i], y = 40 + i * 52, sel = i === this.cur;
-      panel(ctx, 20, y, 280, 44);
+      panel2(ctx, 20, y, 280, 44);
       if (sel) { ctx.fillStyle = '#24424a'; ctx.fillRect(22, y + 2, 276, 40); }
       const unlocked = i < G.save.lakes;
       text(ctx, L.name, 30, y + 6, sel ? '#ffd040' : '#fff', 2);
       text(ctx, L.blurb, 30, y + 22, '#9fd');
-      const cops = L.patrol === 0 ? 'PATROL: NONE' : 'PATROL: ' + '!'.repeat(L.patrol * 2);
-      text(ctx, cops, 30, y + 32, L.patrol ? '#f88' : '#8f8');
+      text(ctx, 'PATROL', 30, y + 33, L.patrol ? '#f88' : '#8f8');
+      if (L.patrol === 0) text(ctx, 'NONE', 60, y + 33, '#8f8');
+      else for (let s = 0; s < L.patrol; s++) drawIcon(ctx, 'siren', 60 + s * 11, y + 30);
+      // mini lake preview: water, the island, its sand spit
+      ctx.fillStyle = '#1f7a86'; ctx.fillRect(250, y + 5, 42, 26);
+      ctx.fillStyle = '#caa86a';
+      ctx.beginPath(); ctx.ellipse(271, y + 18, 13, 6, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(284, y + 17, 4, 2, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#2a6a30';
+      ctx.beginPath(); ctx.ellipse(271, y + 18, 11, 4, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#3a5a60'; ctx.fillRect(250, y + 5, 42, 1); ctx.fillRect(250, y + 30, 42, 1);
+      ctx.fillRect(250, y + 5, 1, 26); ctx.fillRect(291, y + 5, 1, 26);
       if (!unlocked) {
         const next = i === G.save.lakes;
-        text(ctx, next ? 'UNLOCK ' + money(L.unlock) : 'LOCKED', 220, y + 6, next && G.save.cash >= L.unlock ? '#8f8' : '#f88');
+        text(ctx, next ? 'UNLOCK ' + money(L.unlock) : 'LOCKED', 180, y + 6, next && G.save.cash >= L.unlock ? '#8f8' : '#f88');
       }
     }
     textC(ctx, kt('ENTER: CHOOSE/UNLOCK   ESC: BACK', 'OK: CHOOSE/UNLOCK   BACK: RETURN'), W / 2, 204, '#6fa6b2');
@@ -226,16 +251,24 @@ RT.scenes.shop = {
       { label: 'BOAT', list: BOATS, lvl: G.save.boat, desc: 'BIGGER COOLER, FASTER HULL' },
       { label: 'BEER', list: BEERS, lvl: G.save.beer, desc: 'MORE BUZZ, STEADIER HANDS' },
     ];
+    const icons = ['rod', 'boat', 'can'];
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i], y = 36 + i * 52, sel = i === this.cur;
-      panel(ctx, 14, y, 292, 46);
+      panel2(ctx, 14, y, 292, 46);
       if (sel) { ctx.fillStyle = '#24424a'; ctx.fillRect(16, y + 2, 288, 42); }
-      text(ctx, r.label, 22, y + 5, sel ? '#ffd040' : '#fff', 2);
+      drawIcon(ctx, icons[i], 22, y + 4);
+      text(ctx, r.label, 34, y + 5, sel ? '#ffd040' : '#fff', 2);
       text(ctx, 'NOW: ' + r.list[r.lvl].name, 22, y + 22, '#9fd');
       const next = r.list[r.lvl + 1];
       if (next) {
         text(ctx, 'NEXT: ' + next.name, 22, y + 32, '#cfe8e8');
-        text(ctx, money(next.cost), 252, y + 32, G.save.cash >= next.cost ? '#8f8' : '#f88');
+        const afford = G.save.cash >= next.cost;
+        const pw = textW(money(next.cost)) + 8;
+        ctx.fillStyle = afford ? '#1f4a2a' : '#3a1a1a';
+        ctx.fillRect(296 - pw, y + 29, pw, 10);
+        ctx.fillStyle = afford ? '#40c060' : '#a04040';
+        ctx.fillRect(296 - pw, y + 29, pw, 1); ctx.fillRect(296 - pw, y + 38, pw, 1);
+        text(ctx, money(next.cost), 300 - pw, y + 31, afford ? '#8f8' : '#f88');
       } else text(ctx, 'NEXT: NOTHING BEATS IT', 22, y + 32, '#6fa6b2');
       text(ctx, r.desc, 152, y + 5, '#6fa6b2');
     }
@@ -391,7 +424,7 @@ RT.scenes.summary = {
     ctx.fillStyle = '#f0a030'; ctx.fillRect(36, 21, 18, 9);
     waterStripes(40, H, '#23323e', '#37505c', 0.7);
     textCS(ctx, 'WEIGH-IN', W / 2, 8, '#ffd040', 2);
-    panel(ctx, 24, 46, 272, 130);
+    panel2(ctx, 24, 46, 272, 130);
     if (T.cooler.length === 0) {
       textC(ctx, 'EMPTY COOLER. THE LAKE WON TODAY.', W / 2, 100, '#9fd');
     } else {
@@ -470,7 +503,7 @@ RT.scenes.breath = {
     ctx.fillRect(0, 0, W, H);
     textCS(ctx, 'LAKE PATROL', W / 2, 18, '#fff', 2);
     textC(ctx, '"EVENING. BLOW INTO THE TUBE, CAPTAIN."', W / 2, 40, '#9fd');
-    panel(ctx, 60, 70, 200, 60);
+    panel2(ctx, 60, 70, 200, 60);
     // gauge
     const cx = W / 2;
     ctx.fillStyle = '#182830'; ctx.fillRect(cx - 80, 92, 160, 14);

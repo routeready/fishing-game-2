@@ -57,6 +57,18 @@ function genLake(li) {
       seen: false, wasClose: false, chirpT: 0,
     });
   }
+  // floating goodies to ram with the boat
+  world.pickups = [];
+  function addPickup() {
+    const roll = r ? r() : Math.random();
+    const kind = roll < 0.5 ? 'sixpack' : (roll < 0.9 ? 'cash' : 'scanner');
+    if (kind === 'scanner' && world.pickups.some(p => p.kind === 'scanner')) return addPickup();
+    const p = place(70, 70);
+    world.pickups.push({ x: p.x, y: p.y, kind, bobT: r() * 9 });
+  }
+  world.addPickup = addPickup;
+  const nPick = 4 + Math.floor(r() * 3);
+  for (let i = 0; i < nPick; i++) addPickup();
   world.boat = { x: world.dock.x, y: world.dock.y + 22, ang: Math.PI / 2, v: 0, stun: 0 };
   return world;
 }
@@ -73,7 +85,9 @@ RT.scenes.boat = {
     this.pull = 0;   // 'PULL OVER' cutscene timer
     this.hintT = 0;
     this.foam = []; // wake particles
+    this.floaters = []; // rising reward texts
     this.motorT = 0; this.dockArm = 0;
+    this.driftT = rnd(35, 55);
   },
   update(dt) {
     const T = G.trip, Wd = T.world, B = Wd.boat, L = LAKES[T.lake];
@@ -163,6 +177,36 @@ RT.scenes.boat = {
       }
     }
 
+    // --- pickups ---
+    if (T.scanT > 0) T.scanT -= dt;
+    this.driftT -= dt;
+    if (this.driftT <= 0) {
+      this.driftT = rnd(35, 55);
+      if (Wd.pickups.length < 7) Wd.addPickup();
+    }
+    for (let i = Wd.pickups.length - 1; i >= 0; i--) {
+      const P = Wd.pickups[i];
+      if (dist(B.x, B.y, P.x, P.y) > 14) continue;
+      Wd.pickups.splice(i, 1);
+      SFX.pickup(); RT.addFlash('#ffffff', 0.08); RT.vibrate(30);
+      let txt = '';
+      if (P.kind === 'sixpack') {
+        T.cans = Math.min(12, T.cans + 3);
+        txt = '+3 COLD ONES';
+      } else if (P.kind === 'cash') {
+        const amt = 15 + Math.floor(Math.random() * 16) + T.lake * 10;
+        G.save.cash += amt; persist();
+        txt = '+' + money(amt);
+      } else {
+        T.scanT = 20;
+        txt = 'POLICE SCANNER!';
+        earlSay('EARL: OOH, CHANNEL 9. THE LAW SOUNDS GRUMPY.', 3.5);
+      }
+      this.floaters.push({ txt, x: P.x, y: P.y - 10, t: 0 });
+    }
+    for (const fl of this.floaters) fl.t += dt;
+    this.floaters = this.floaters.filter(fl => fl.t < 1.1);
+
     // --- patrols ---
     const R = 130 * G.daily.weather.copR;
     let seenAny = false, nearestD = 1e9;
@@ -193,8 +237,8 @@ RT.scenes.boat = {
       }
       P.seen = seen;
     }
-    // suspicion
-    if (T.suspGrace <= 0 && seenAny) {
+    // suspicion (the scanner tells you where they're looking)
+    if (T.suspGrace <= 0 && seenAny && !(T.scanT > 0)) {
       let rate = 0;
       rate += weave * 26;                                   // weaving wake
       if (T.drinking > 0) rate += 55;                       // can in hand, in plain view
@@ -363,6 +407,31 @@ RT.scenes.boat = {
       textCS(ctx, 'COPS', sx, sy - 14, '#f88');
       if (P.seen && Math.floor(G.t * 4) % 2 === 0) textCS(ctx, '!', sx, sy - 22, '#f44', 2);
     }
+    // pickups bobbing on the water
+    for (const P of Wd.pickups) {
+      const sx = P.x - camX, sy = P.y - camY + Math.sin(G.t * 2 + P.bobT) * 1.5;
+      if (sx < -20 || sx > SW + 20 || sy < -20 || sy > SH + 20) continue;
+      if (P.kind === 'sixpack') {
+        ctx.fillStyle = '#f0c020'; ctx.fillRect(sx - 4, sy - 3, 8, 6);
+        ctx.fillStyle = '#c0c8d0'; ctx.fillRect(sx - 4, sy - 3, 8, 1);
+        ctx.fillStyle = '#a08010'; ctx.fillRect(sx - 1, sy - 3, 1, 6); ctx.fillRect(sx + 2, sy - 3, 1, 6);
+      } else if (P.kind === 'cash') {
+        ctx.fillStyle = '#8a6a3a'; ctx.fillRect(sx - 4, sy - 3, 9, 7);
+        ctx.fillStyle = '#6a4a2a'; ctx.fillRect(sx - 4, sy - 3, 9, 1); ctx.fillRect(sx - 4, sy + 3, 9, 1);
+        textC(ctx, '$', sx + 1, sy - 2, '#8f8');
+      } else {
+        ctx.fillStyle = '#204060'; ctx.fillRect(sx - 4, sy - 2, 8, 5);
+        ctx.fillStyle = '#9fd'; ctx.fillRect(sx - 3, sy - 1, 3, 2);
+        if (Math.floor(G.t * 5) % 2 === 0) { ctx.fillStyle = '#f03030'; ctx.fillRect(sx + 2, sy - 4, 2, 2); }
+        ctx.fillStyle = '#888'; ctx.fillRect(sx + 3, sy - 6, 1, 3);
+      }
+    }
+    // reward floaters
+    for (const fl of this.floaters) {
+      const k = fl.t / 1.1;
+      if (Math.floor(k * 16) % 4 === 3) continue; // sparkle flicker
+      textCS(ctx, fl.txt, fl.x - camX, fl.y - camY - k * 14, k < 0.5 ? '#ffd040' : '#fff');
+    }
     // player boat
     {
       const sx = B.x - camX, sy = B.y - camY;
@@ -426,7 +495,13 @@ RT.scenes.boat = {
     panel(ctx, 4, 4, 58, 20); drawClock(8, 7);
     drawBuzz(W - 52, 6);
     drawWeatherIcon(W - 22, 30);
-    panel(ctx, 4, H - 16, 150, 12); drawCooler(8, H - 15);
+    panel(ctx, 4, H - 18, 160, 14); drawCooler(8, H - 16);
+    // police scanner chip
+    if (T.scanT > 0) {
+      panel(ctx, 4, 42, 58, 12);
+      text(ctx, 'SCAN', 8, 45, '#9fd');
+      text(ctx, Math.ceil(T.scanT) + 'S', 40, 45, Math.floor(G.t * 4) % 2 === 0 ? '#fff' : '#9fd');
+    }
     // suspicion eye
     if (T.susp > 1) {
       panel(ctx, 4, 28, 58, 12);
@@ -453,6 +528,10 @@ RT.scenes.boat = {
       ctx.fill();
       ctx.fillStyle = '#caa86a';
       ctx.fillRect(mx + Math.round(Wd.dock.x * k) - 1, my + Math.round(Wd.dock.y * k) - 1, 3, 2);
+      if (Math.floor(G.t * 3) % 2 === 0) {
+        ctx.fillStyle = '#ffe080';
+        for (const P2 of Wd.pickups) ctx.fillRect(mx + Math.round(P2.x * k), my + Math.round(P2.y * k), 1, 1);
+      }
       for (const P of Wd.patrols) {
         const px = mx + Math.round(P.x * k), py = my + Math.round(P.y * k);
         ctx.fillStyle = '#f03030'; ctx.fillRect(px - 2, py - 1, 2, 2);
