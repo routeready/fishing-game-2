@@ -5,7 +5,7 @@ function genLake(li) {
   const L = LAKES[li];
   const r = mulberry32(G.daily.seed * 7919 + li * 101 + 13);
   const world = { w: L.w, h: L.h, spots: [], rocks: [], buoys: [], patrols: [] };
-  // The island anchors every lake; Earl's dock is on its south shore.
+  // The island anchors every lake; Graham's dock is on its south shore.
   const irx = Math.min(L.w * 0.14, 215);
   world.island = { x: L.w / 2, y: L.h / 2, rx: irx, ry: irx * 0.42, seed: Math.floor(r() * 1e9) };
   world.dock = { x: L.w / 2, y: L.h / 2 + world.island.ry + 26 };
@@ -104,7 +104,7 @@ RT.scenes.boat = {
     if (T.suspGrace > 0) T.suspGrace -= dt;
     if (pressed('beer')) {
       drink();
-      if (T.buzz >= 9) earlSay("EARL: PACE YOURSELF, ADMIRAL.", 3);
+      if (T.buzz >= 9) earlSay("GRAHAM: PACE YOURSELF, ADMIRAL.", 3);
     }
 
     // --- drive ---
@@ -200,7 +200,7 @@ RT.scenes.boat = {
       } else {
         T.scanT = 20;
         txt = 'POLICE SCANNER!';
-        earlSay('EARL: OOH, CHANNEL 9. THE LAW SOUNDS GRUMPY.', 3.5);
+        earlSay('GRAHAM: OOH, CHANNEL 9. THE LAW SOUNDS GRUMPY.', 3.5);
       }
       this.floaters.push({ txt, x: P.x, y: P.y - 10, t: 0 });
     }

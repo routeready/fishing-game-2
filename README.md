@@ -19,7 +19,7 @@ leaderboard (best single-trip haul, saved in the browser).
 
 On phones and tablets touch controls appear automatically: d-pad bottom-left
 for steering and aiming, the action block with the big CAST button bottom
-center, and a hold-to-drive GAS button bottom-right. Y/N pop up when Earl
+center, and a hold-to-drive GAS button bottom-right. Y/N pop up when Graham
 offers you a freebie. All on-screen hints adapt to the touch buttons.
 
 | Key | Action |
@@ -63,7 +63,7 @@ the entire time.
   worth double
 - The bar wall — biggest catch, best haul, drunkest *successful* trip, and your
   no-arrest streak
-- Earl, your drunk boat buddy, who hands you free beers and narrates badly
+- Graham, your drunk boat buddy, who hands you free beers and narrates badly
 
 ## Dev
 

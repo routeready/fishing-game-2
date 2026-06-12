@@ -72,7 +72,7 @@
   mute.id = 'tmute';
   document.body.appendChild(mute);
 
-  // Earl's free-beer offer wants Y/N — pop them up only while he's asking.
+  // Graham's free-beer offer wants Y/N — pop them up only while he's asking.
   const yn = document.createElement('div');
   yn.id = 'tyn';
   yn.append(btn('Y', ['yes'], 'sm', 'yes!'), btn('N', ['no'], 'sm', 'no thanks'));
