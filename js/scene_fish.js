@@ -121,8 +121,8 @@ RT.scenes.fish = {
     this.fish = null;
     if (f.legend) RT.addFlash('#ffd040', 0.3);
     if (f.legend || newBig) SFX.fanfare(); else SFX.land();
-    if (f.legend) earlSay('EARL: ' + f.name + '!! I HEARD IT WAS A MYTH!!', 5);
-    else if (!kept) earlSay("EARL: COOLER'S FULL, BUD. BACK SHE GOES.", 4);
+    if (f.legend) earlSay('GRAHAM: ' + f.name + '!! I HEARD IT WAS A MYTH!!', 5);
+    else if (!kept) earlSay("GRAHAM: COOLER'S FULL, BUD. BACK SHE GOES.", 4);
   },
 
   loseFish(why) {
@@ -224,7 +224,7 @@ RT.scenes.fish = {
         this.super = true;
         this.superBuzz = T.buzz; // the catch pays at the buzz you earned it with
         T.buzz = 0;
-        earlSay('EARL: I GOT YER BEER. NOW THROW LIKE YOU MEAN IT.', 3.5);
+        earlSay('GRAHAM: I GOT YER BEER. NOW THROW LIKE YOU MEAN IT.', 3.5);
         SFX.fanfare();
       }
       if (pressed('act') && !hunkered) {
@@ -240,7 +240,7 @@ RT.scenes.fish = {
       this.power += this.pDir * spd * dt;
       if (this.power >= 1) { this.power = 1; this.pDir = -1; }
       if (this.power <= 0) { this.power = 0; this.pDir = 1; }
-      if (this.super) this.power = this.needed; // Earl steadies your arm
+      if (this.super) this.power = this.needed; // Graham steadies your arm
       this.castTickT -= dt;
       if (this.castTickT <= 0) { this.castTickT = 0.07; SFX.tick(this.power); }
       if (pressed('act') || this.super) {

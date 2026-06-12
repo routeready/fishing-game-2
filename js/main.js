@@ -186,7 +186,7 @@ RT.vibrate = vibrate;
 function toast(txt, col) { G.toast = { txt, t: 2.6, col: col || '#fff' }; }
 RT.toast = toast;
 
-// ---------- Earl, the drunk AI buddy ----------
+// ---------- Graham, the drunk AI buddy ----------
 function earlSay(txt, ttl) {
   G.earl.txt = txt;
   G.earl.ttl = ttl || 4;
@@ -202,10 +202,10 @@ function earlUpdate(dt) {
       E.offerT -= dt;
       if (pressed('yes')) {
         E.offer = false; E.ttl = 0;
-        if (drink(true)) earlSay("EARL: ATTA BOY! IT'S FREE IF YOU DON'T REMEMBER IT.", 3.5);
+        if (drink(true)) earlSay("GRAHAM: ATTA BOY! IT'S FREE IF YOU DON'T REMEMBER IT.", 3.5);
       } else if (pressed('no') || E.offerT <= 0) {
         E.offer = false; E.ttl = 0;
-        earlSay('EARL: MORE FOR ME THEN.', 2.5);
+        earlSay('GRAHAM: MORE FOR ME THEN.', 2.5);
       }
     }
     if (E.ttl <= 0) E.txt = null;

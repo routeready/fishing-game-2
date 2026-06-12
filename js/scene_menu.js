@@ -47,7 +47,7 @@ RT.scenes.title = {
       ctx.fillRect(Math.round(bx2 + 1), Math.round(by2 + (fl ? 0 : -1)), 3, 1);
       ctx.fillRect(Math.round(bx2), Math.round(by2), 1, 1);
     }
-    // boat silhouette with you and Earl aboard
+    // boat silhouette with you and Graham aboard
     const bx = 60 + Math.sin(G.t * 0.6) * 4, by = 96 + Math.sin(G.t * 1.4) * 1.5;
     ctx.fillStyle = '#0a1a20';
     ctx.fillRect(bx, by, 34, 6);
@@ -123,7 +123,7 @@ RT.scenes.dock = {
     ctx.fillStyle = '#6a4a2a'; ctx.fillRect(0, 70, W, 16);
     ctx.fillStyle = '#4a3420';
     for (let x = 0; x < W; x += 22) ctx.fillRect(x, 70, 2, 16);
-    textCS(ctx, "MURPHY'S DOCK & BAIT", W / 2, 10, '#ffd040', 2);
+    textCS(ctx, "BOB'S BAIT", W / 2, 10, '#ffd040', 2);
     text(ctx, 'CASH ' + money(G.save.cash), 12, 32, '#8f8', 2);
     text(ctx, RODS[G.save.rod].name, 12, 48, '#9fd');
     text(ctx, BOATS[G.save.boat].name, 12, 56, '#9fd');
@@ -133,7 +133,7 @@ RT.scenes.dock = {
     text(ctx, 'STREAK ' + R.streak, 240, 48, '#fc8');
     text(ctx, 'TRIPS ' + R.trips, 240, 56, '#9fd');
 
-    panel2(ctx, 70, 92, 180, 108, "MURPHY'S MENU");
+    panel2(ctx, 70, 92, 180, 108, "BOB'S MENU");
     for (let i = 0; i < this.items.length; i++) {
       let label = this.items[i];
       if (label === 'LAKE') {
@@ -244,7 +244,7 @@ RT.scenes.shop = {
   },
   draw() {
     ctx.fillStyle = '#0e1c22'; ctx.fillRect(0, 0, W, H);
-    textCS(ctx, 'BAIT SHOP', W / 2, 10, '#ffd040', 2);
+    textCS(ctx, "BOB'S BAIT SHOP", W / 2, 10, '#ffd040', 2);
     text(ctx, 'CASH ' + money(G.save.cash), 230, 12, '#8f8');
     const rows = [
       { label: 'ROD', list: RODS, lvl: G.save.rod, desc: 'WIDER GREEN ZONE, TOUGHER LINE' },
@@ -537,7 +537,7 @@ RT.scenes.bust = {
     textC(ctx, 'BOATING UNDER THE INFLUENCE', W / 2, 104, '#fff');
     textC(ctx, 'COOLER CONFISCATED: ' + this.fish + ' FISH (' + money(this.lost) + ')', W / 2, 122, '#f88');
     textC(ctx, 'NO-ARREST STREAK RESET', W / 2, 134, '#f88');
-    textC(ctx, "EARL POSTED YOUR MUGSHOT AT THE BAR.", W / 2, 152, '#9fd');
+    textC(ctx, "GRAHAM POSTED YOUR MUGSHOT AT THE BAR.", W / 2, 152, '#9fd');
     textC(ctx, kt('ENTER: SLEEP IT OFF', 'OK: SLEEP IT OFF'), W / 2, 190, '#6fa6b2');
   },
 };
